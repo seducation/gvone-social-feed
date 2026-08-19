@@ -66,3 +66,6 @@
 - [x] Resolve Reddit community page URLs to their public `.rss` endpoints
 - [x] Add a targeted regression test for https://www.reddit.com/r/technology/ and bounded import completion
 - [x] Add feed.add integration coverage proving the Reddit Technology URL settles within the bounded deadline
+- [x] Resolve https://www.cnn.com/world to CNN’s official public RSS feed
+- [x] Treat malformed HTML or unclosed CDATA from webpage URLs as a webpage-discovery case instead of an XML parser failure
+- [x] Add CNN World parser and feed.add completion regression coverage

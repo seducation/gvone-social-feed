@@ -153,6 +153,13 @@ function redditCommunityFeedUrl(url: string): string | null {
   return `${page.origin}/r/${match[1]}/.rss`;
 }
 
+function cnnFeedUrl(url: string): string | null {
+  const page = new URL(url);
+  if (!/(^|\.)cnn\.com$/i.test(page.hostname)) return null;
+  if (/^\/world\/?$/i.test(page.pathname)) return "http://rss.cnn.com/rss/edition_world.rss";
+  return null;
+}
+
 function extractJsonAssignment(html: string, marker: string): unknown {
   const markerIndex = html.indexOf(marker);
   if (markerIndex < 0) return null;
@@ -215,6 +222,8 @@ async function resolveKnownPageToFeed(url: string): Promise<string> {
   const page = new URL(url);
   const redditFeed = redditCommunityFeedUrl(url);
   if (redditFeed) return redditFeed;
+  const cnnFeed = cnnFeedUrl(url);
+  if (cnnFeed) return cnnFeed;
   if (!isYouTubeChannelPage(url)) return url;
   try {
     const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
@@ -258,6 +267,12 @@ export async function parseFeed(url: string, timeoutMs = 15000, state?: ParseSta
   const xml = await response.text();
   if (isFacebookPage(url)) throw new Error(facebookFeedError(url));
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
+  const isWebPage = /^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml);
+  if (isWebPage) {
+    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url, parseState);
+    if (discoveredFeed) return discoveredFeed;
+    throw new Error("This URL returned a web page, not an RSS/Atom feed. Paste the direct RSS/Atom XML URL, or try a common path such as /feed/, /rss.xml, or /atom.xml.");
+  }
   let parsed: Record<string, any>;
   try {
     parsed = parser.parse(xml) as Record<string, any>;
@@ -276,7 +291,6 @@ export async function parseFeed(url: string, timeoutMs = 15000, state?: ParseSta
   if (!hasRssShape && !hasAtomShape) {
     const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url, parseState);
     if (discoveredFeed) return discoveredFeed;
-    if (/^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml)) throw new Error("This URL returned a web page, not an RSS/Atom feed. Paste the direct RSS/Atom XML URL, or try a common path such as /feed/, /rss.xml, or /atom.xml.");
     throw new Error("The URL returned XML, but it was not a recognized RSS or Atom feed");
   }
   const base = new URL(finalUrl);

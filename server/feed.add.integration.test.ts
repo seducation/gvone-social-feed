@@ -41,6 +41,18 @@ describe("feed.add integration error handling", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://www.reddit.com/r/technology/.rss");
   });
 
+  it("settles the provided CNN World URL through feed.add", async () => {
+    const rss = `<?xml version="1.0"?><rss><channel><title>CNN World</title><item><guid>cnn-world-1</guid><title>World story</title><link>https://www.cnn.com/world/story</link></item></channel></rss>`;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(rss, { status: 200, headers: { "content-type": "text/xml" } }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const caller = appRouter.createCaller(createContext());
+    const result = caller.feed.add({ url: "https://www.cnn.com/world" });
+    await expect(Promise.race([result, new Promise((_, reject) => setTimeout(() => reject(new Error("CNN import did not settle")), 1500))])).rejects.toThrow("Database unavailable");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://rss.cnn.com/rss/edition_world.rss");
+  });
+
   it("normalizes a real plain-text 503 response into a readable tRPC error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Service Unavailable", { status: 503, headers: { "content-type": "text/plain" } })));
     const caller = appRouter.createCaller(createContext());

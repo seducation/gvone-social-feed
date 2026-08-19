@@ -74,6 +74,22 @@ describe("parseFeed", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://www.reddit.com/r/technology/.rss");
   });
 
+  it("resolves the provided CNN World page to CNN's official world RSS feed", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss><channel><title>CNN World</title><item><guid>cnn-world-1</guid><title>World story</title><link>https://www.cnn.com/world/story</link><pubDate>Tue, 19 Aug 2026 08:00:00 GMT</pubDate></item></channel></rss>`, { status: 200, headers: { "content-type": "text/xml" } }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await parseFeed("https://www.cnn.com/world");
+    expect(result.title).toBe("CNN World");
+    expect(result.articles[0]?.title).toBe("World story");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://rss.cnn.com/rss/edition_world.rss");
+  });
+
+  it("treats malformed webpage HTML as a webpage instead of surfacing an XML CDATA error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(`<!doctype html><html><body><![CDATA[not closed`, { status: 200, headers: { "content-type": "text/html" } })));
+    await expect(parseFeed("https://example.com/malformed-page", 1000)).rejects.toThrow("This URL returned a web page, not an RSS/Atom feed");
+  });
+
   it("reports malformed non-YouTube XML clearly", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("this is not xml", { status: 200, headers: { "content-type": "application/xml" } })));
     await expect(parseFeed("https://example.com/broken.xml")).rejects.toThrow("not a recognized RSS or Atom feed");
