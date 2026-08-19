@@ -143,3 +143,4 @@
 - [x] Move the fixed icon-only Shorts tab to the left of All while keeping Manage fixed at the far right
 - [x] Give Shorts true source-tab semantics and active-state parity with regression coverage
 - [x] Show the Shorts label only while the source bar is expanded, then use icon-only Shorts when it contracts
+- [x] Push the validated Signalflow source history to GitHub using the renewed repository credential
