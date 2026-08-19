@@ -18,6 +18,15 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.videoUrl).toBe("https://example.com/clip.mp4");
   });
 
+  it("accepts deeply nested article markup without throwing", async () => {
+    const nested = `${"<span>".repeat(1200)}Deep story${"</span>".repeat(1200)}`;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss><channel><title>Nested Feed</title><item><title>Deep article</title><link>https://example.com/deep</link><description><![CDATA[${nested}]]></description></item></channel></rss>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/deep-feed.xml");
+    expect(result.articles[0]?.title).toBe("Deep article");
+  });
+
   it("supports Atom entries", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<feed><title>Atom Daily</title><entry><id>tag:example.com,2026:1</id><title>Atom story</title><link href="https://example.com/story"/><updated>2026-08-19T08:00:00Z</updated><summary>Summary</summary></entry></feed>`, { status: 200 })));
     const result = await parseFeed("https://example.com/atom.xml");

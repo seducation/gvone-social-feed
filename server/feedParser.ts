@@ -18,7 +18,7 @@ export type ParsedFeed = {
   articles: ParsedArticle[];
 };
 
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", cdataPropName: "__cdata" });
+const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", cdataPropName: "__cdata", maxNestedTags: 10000 });
 
 function asText(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -92,6 +92,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
   if (!response.ok) throw new Error(`Feed returned HTTP ${response.status}`);
   const xml = await response.text();
+  if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
   const parsed = parser.parse(xml) as Record<string, any>;
   const rss = parsed.rss?.channel;
   const atom = parsed.feed;

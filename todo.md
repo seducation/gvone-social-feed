@@ -18,3 +18,5 @@
 - [x] Add ownership checks to feed-group assignment mutations before deletion or update
 - [x] Add tests for ownership isolation, group assignment/merge behavior, and refresh flows
 - [x] Activate and document the 30-minute Heartbeat job after the site is deployed
+- [x] Fix RSS ingestion failure when a feed exceeds the XML parser maximum nested-tag depth
+- [x] Add regression coverage for deeply nested feed content and verify the add-feed error path
