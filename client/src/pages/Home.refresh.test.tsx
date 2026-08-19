@@ -148,8 +148,9 @@ describe("dashboard reload refresh controls", () => {
 
     const sourceBar = document.querySelector("[data-source-bar]");
     expect(sourceBar).toBeTruthy();
-    expect(within(sourceBar as HTMLElement).getByRole("button", { name: "Manage RSS sources" })).toBeTruthy();
-    expect(within(sourceBar as HTMLElement).getByRole("button", { name: "Open Shorts" })).toBeTruthy();
+    const shorts = within(sourceBar as HTMLElement).getByRole("button", { name: "Open Shorts" });
+    const manage = within(sourceBar as HTMLElement).getByRole("button", { name: "Manage RSS sources" });
+    expect(shorts.compareDocumentPosition(manage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("opens the separate source manager from the header and lets a reader open or disable a private RSS source", async () => {
