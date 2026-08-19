@@ -442,11 +442,13 @@ describe("dashboard reload refresh controls", () => {
     const sourceBar = screen.getByLabelText("Source category tabs").closest("[data-source-bar]") as HTMLElement;
 
     expect(sourceBar.dataset.compact).toBe("false");
+    expect(within(sourceBar).getByText("Shorts")).toBeTruthy();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 128 });
     fireEvent.scroll(window);
 
     await waitFor(() => expect(sourceBar.dataset.compact).toBe("true"));
     expect(sourceBar.className).toContain("py-1.5");
+    expect(within(sourceBar).queryByText("Shorts")).toBeNull();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 

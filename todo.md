@@ -142,3 +142,4 @@
 - [x] Give the fixed Shorts tab the same selected, hover, scroll, and compact behavior as a normal source tab
 - [x] Move the fixed icon-only Shorts tab to the left of All while keeping Manage fixed at the far right
 - [x] Give Shorts true source-tab semantics and active-state parity with regression coverage
+- [x] Show the Shorts label only while the source bar is expanded, then use icon-only Shorts when it contracts
