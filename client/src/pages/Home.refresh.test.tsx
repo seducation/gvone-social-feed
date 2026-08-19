@@ -288,6 +288,25 @@ describe("dashboard reload refresh controls", () => {
     first.videoMimeType = originalMimeType;
   });
 
+  it("starts a YouTube Short with sound when the reader has already enabled the saved preference", async () => {
+    const first = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = first.videoUrl;
+    const originalMimeType = first.videoMimeType;
+    first.videoUrl = "https://www.youtube.com/embed/example";
+    first.videoMimeType = "text/html";
+    localStorage.setItem("signalflow-shorts-sound", "on");
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const frame = await within(dialog).findByTitle("Embedded feed video");
+
+    expect((frame as HTMLIFrameElement).src).toContain("mute=0");
+    expect(within(dialog).getByRole("button", { name: "Mute Shorts" }).getAttribute("aria-pressed")).toBe("true");
+    first.videoUrl = originalUrl;
+    first.videoMimeType = originalMimeType;
+  });
+
   it("shows the Shorts empty state when the library has no playable video", () => {
     const originalVideos = mocks.allArticles.map((article) => article.videoUrl);
     mocks.allArticles.forEach((article) => { article.videoUrl = null; });

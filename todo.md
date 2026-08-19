@@ -117,3 +117,4 @@
 - [x] Improve active-Short playback responsiveness and add regressions for sound continuity
 - [x] Reduce Shorts media startup delay by loading only the active and nearby videos at high priority
 - [x] Sync YouTube Shorts player mute and unmute actions with the persisted Shorts sound preference
+- [x] Apply the saved Shorts sound preference after an embedded YouTube player finishes loading
