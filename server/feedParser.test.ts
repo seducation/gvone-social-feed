@@ -18,6 +18,25 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.videoUrl).toBe("https://example.com/clip.mp4");
   });
 
+  it("supports namespaced RSS and RDF/RSS 1.0 roots", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rss:channel><rss:title>RDF Journal</rss:title></rss:channel><rss:item><rss:title>Namespaced story</rss:title><rss:link>https://example.com/namespaced</rss:link><dc:date>2026-08-19T08:00:00Z</dc:date></rss:item></rdf:RDF>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/rdf.xml");
+    expect(result.title).toBe("RDF Journal");
+    expect(result.articles[0]?.title).toBe("Namespaced story");
+  });
+
+  it("supports prefixed Atom feed roots", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><atom:feed xmlns:atom="http://www.w3.org/2005/Atom"><atom:title>Prefixed Atom</atom:title><atom:entry><atom:id>tag:example.com,2026:2</atom:id><atom:title>Prefixed story</atom:title><atom:link href="https://example.com/prefixed"/><atom:updated>2026-08-19T08:00:00Z</atom:updated><atom:summary>Atom summary</atom:summary></atom:entry></atom:feed>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/prefixed-atom.xml");
+    expect(result.title).toBe("Prefixed Atom");
+    expect(result.articles[0]?.title).toBe("Prefixed story");
+    expect(result.articles[0]?.link).toBe("https://example.com/prefixed");
+  });
+
   it("accepts deeply nested article markup without throwing", async () => {
     const nested = `${"<span>".repeat(1200)}Deep story${"</span>".repeat(1200)}`;
     vi.stubGlobal("fetch", vi.fn()

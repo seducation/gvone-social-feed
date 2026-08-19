@@ -20,3 +20,6 @@
 - [x] Activate and document the 30-minute Heartbeat job after the site is deployed
 - [x] Fix RSS ingestion failure when a feed exceeds the XML parser maximum nested-tag depth
 - [x] Add regression coverage for deeply nested feed content and verify the add-feed error path
+- [x] Fix false-negative detection for valid RSS or Atom feeds that use real-world namespace and root variations
+- [x] Add regression tests for namespaced RSS, RDF/RSS 1.0, and Atom feed variants
+- [x] Add regression coverage for prefixed and namespace-declared Atom feed roots

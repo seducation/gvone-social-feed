@@ -33,6 +33,16 @@ function first(value: unknown): unknown {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function localName(key: string) { return key.includes(":") ? key.split(":").pop()!.toLowerCase() : key.toLowerCase(); }
+function childByLocalName(value: unknown, name: string): unknown {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const exact = record[name] ?? record[`rss:${name}`] ?? record[`atom:${name}`];
+  if (exact !== undefined) return exact;
+  const key = Object.keys(record).find((candidate) => localName(candidate) === name.toLowerCase());
+  return key ? record[key] : undefined;
+}
+
 function absoluteUrl(value: string, baseUrl: string): string {
   try { return new URL(value, baseUrl).toString(); } catch { return value; }
 }
@@ -47,8 +57,8 @@ function parseDate(value: string): Date | null {
 }
 
 function mediaUrl(item: Record<string, unknown>, baseUrl: string, description: string) {
-  const enclosure = first(item.enclosure) as Record<string, unknown> | undefined;
-  const media = first(item["media:content"]) as Record<string, unknown> | undefined;
+  const enclosure = first(childByLocalName(item, "enclosure")) as Record<string, unknown> | undefined;
+  const media = first(childByLocalName(item, "content")) as Record<string, unknown> | undefined;
   const candidate = enclosure?.["@_url"] ?? media?.["@_url"];
   const mime = String(enclosure?.["@_type"] ?? media?.["@_type"] ?? "");
   const embedded = description.match(/<(?:video|source)[^>]+src=[\"']([^\"']+)[\"']/i)?.[1] ?? null;
@@ -69,19 +79,20 @@ async function discoverFavicon(feedUrl: string): Promise<string> {
 
 function articleFromItem(raw: unknown, baseUrl: string, atom = false): ParsedArticle {
   const item = (raw ?? {}) as Record<string, unknown>;
-  const linkValue = atom ? first(item.link) as Record<string, unknown> | undefined : undefined;
-  const link = atom ? String(linkValue?.["@_href"] ?? asText(item.link)) : asText(item.link);
-  const description = asText(item.description ?? item["content:encoded"] ?? item.summary ?? item.content);
-  const title = asText(item.title) || "Untitled article";
+  const rawLink = childByLocalName(item, "link");
+  const linkValue = atom ? first(rawLink) as Record<string, unknown> | undefined : undefined;
+  const link = atom ? String(linkValue?.["@_href"] ?? asText(rawLink)) : asText(rawLink);
+  const description = asText(childByLocalName(item, "description") ?? childByLocalName(item, "content:encoded") ?? childByLocalName(item, "summary") ?? childByLocalName(item, "content"));
+  const title = asText(childByLocalName(item, "title")) || "Untitled article";
   const media = mediaUrl(item, baseUrl, description);
   const imageMatch = description.match(/<img[^>]+src=["']([^"']+)["']/i);
   const thumbnail = item["media:thumbnail"] as Record<string, unknown> | undefined;
   const thumbnailValue = thumbnail?.["@_url"] ?? imageMatch?.[1] ?? (media.mime && media.mime.startsWith("image/") ? media.url : null);
-  const guid = asText(item.guid ?? item.id ?? link ?? `${title}-${asText(item.pubDate ?? item.published)}`);
+  const guid = asText(childByLocalName(item, "guid") ?? childByLocalName(item, "id") ?? link ?? `${title}-${asText(childByLocalName(item, "pubDate") ?? childByLocalName(item, "published"))}`);
   return {
     guid: guid.slice(0, 1024), title, link: absoluteUrl(link, baseUrl),
     description: description ? stripMarkup(description).slice(0, 420) : null,
-    publishedAt: parseDate(asText(item.pubDate ?? item.published ?? item.updated ?? item["dc:date"])),
+    publishedAt: parseDate(asText(childByLocalName(item, "pubDate") ?? childByLocalName(item, "published") ?? childByLocalName(item, "updated") ?? childByLocalName(item, "date"))),
     thumbnailUrl: thumbnailValue ? absoluteUrl(String(thumbnailValue), baseUrl) : null,
     videoUrl: media.mime && media.mime.startsWith("video/") ? media.url : null,
     videoMimeType: media.mime && media.mime.startsWith("video/") ? media.mime : null,
@@ -94,15 +105,20 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   const xml = await response.text();
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
   const parsed = parser.parse(xml) as Record<string, any>;
-  const rss = parsed.rss?.channel;
-  const atom = parsed.feed;
-  if (!rss && !atom) throw new Error("The URL did not return a supported RSS or Atom feed");
+  const rootKey = Object.keys(parsed).find((key) => ["rss", "rdf", "rdf:rdf", "feed"].includes(key.toLowerCase()) || ["rss", "rdf", "feed"].includes(localName(key)));
+  const root = rootKey ? parsed[rootKey] : parsed;
+  const channel = childByLocalName(root, "channel");
+  const atom = localName(rootKey ?? "") === "feed" ? root : undefined;
+  const rss = channel ?? (atom ? undefined : root);
+  const hasRssShape = Boolean(channel || childByLocalName(root, "item"));
+  const hasAtomShape = Boolean(atom && childByLocalName(atom, "entry"));
+  if (!hasRssShape && !hasAtomShape) throw new Error("The URL did not return a supported RSS or Atom feed");
   const base = new URL(url);
-  const rawItems = rss?.item ?? atom?.entry ?? [];
+  const rawItems = childByLocalName(rss, "item") ?? childByLocalName(root, "item") ?? childByLocalName(atom, "entry") ?? [];
   const items = (Array.isArray(rawItems) ? rawItems : [rawItems]).map((item) => articleFromItem(item, url, Boolean(atom))).filter((item) => item.link);
   return {
-    title: asText(first(rss?.title ?? atom?.title)) || base.hostname,
-    description: (asText(first(rss?.description ?? atom?.subtitle)) || null),
+    title: asText(first(childByLocalName(rss, "title") ?? childByLocalName(atom, "title"))) || base.hostname,
+    description: (asText(first(childByLocalName(rss, "description") ?? childByLocalName(atom, "subtitle"))) || null),
     faviconUrl: await discoverFavicon(url),
     articles: items.slice(0, 100),
   };
