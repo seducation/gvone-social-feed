@@ -1,0 +1,20 @@
+# Project TODO
+
+- [x] Add RSS feed URL with custom title and auto-fetch metadata including title, description, and favicon
+- [x] Parse RSS and Atom XML server-side into normalized articles with title, link, description, published date, thumbnail, and media metadata
+- [x] Persist user-owned RSS feeds and support manual removal
+- [x] Persist user-owned named groups with create, rename, and delete actions
+- [x] Persist feed-to-group assignments and support assigning one feed to multiple groups
+- [x] Build unified group feed queries that merge and sort articles by published date
+- [x] Add manual refresh actions per feed and per group
+- [x] Add periodic background refresh handler for all feeds at approximately 30-minute intervals
+- [x] Build responsive social-style dashboard with sidebar groups/feeds and content-first article stream
+- [x] Build article cards with source, date, thumbnail, original link, and inline media/video playback
+- [x] Enforce authentication and ownership isolation across feeds, groups, assignments, and articles
+- [x] Add server and UI tests for feed parsing, ownership, grouping, refresh, and inline media behavior
+- [x] Run type checks, tests, and responsive visual verification
+- [x] Discover favicons from feed/site metadata with a fallback chain instead of only assuming /favicon.ico
+- [x] Detect embedded video URLs from article HTML and expose inline-playable media where safe
+- [x] Add ownership checks to feed-group assignment mutations before deletion or update
+- [x] Add tests for ownership isolation, group assignment/merge behavior, and refresh flows
+- [ ] Activate and document the 30-minute Heartbeat job after the site is deployed

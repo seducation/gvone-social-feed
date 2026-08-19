@@ -1,92 +1,36 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { InsertUser, RssArticle, rssArticles, rssFeeds, rssGroups, feedGroups, users } from "../drizzle/schema";
+import { ENV } from "./_core/env";
+import type { ParsedFeed } from "./feedParser";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-
-// Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
-}
+export async function getDb() { if (!_db && process.env.DATABASE_URL) { try { _db = drizzle(process.env.DATABASE_URL); } catch { _db = null; } } return _db; }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
+  const db = await getDb(); if (!db || !user.openId) return;
+  const values: InsertUser = { openId: user.openId, name: user.name, email: user.email, loginMethod: user.loginMethod, lastSignedIn: user.lastSignedIn ?? new Date(), role: user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user") };
+  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: { name: values.name, email: values.email, loginMethod: values.loginMethod, lastSignedIn: values.lastSignedIn, role: values.role } });
+}
+export async function getUserByOpenId(openId: string) { const db = await getDb(); if (!db) return undefined; return (await db.select().from(users).where(eq(users.openId, openId)).limit(1))[0]; }
 
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
+export function ownsResource(userId: number, resource: { userId: number } | undefined) { return Boolean(resource && resource.userId === userId); }
+export function sortArticlesByPublished<T extends { publishedAt: Date | null }>(articles: T[]) { return [...articles].sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)); }
 
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
+export async function listFeeds(userId: number) { const db = await getDb(); if (!db) return []; return db.select().from(rssFeeds).where(eq(rssFeeds.userId, userId)).orderBy(desc(rssFeeds.createdAt)); }
+export async function listGroups(userId: number) { const db = await getDb(); if (!db) return []; return db.select().from(rssGroups).where(eq(rssGroups.userId, userId)).orderBy(rssGroups.name); }
+export async function getFeed(userId: number, id: number) { const db = await getDb(); if (!db) return undefined; return (await db.select().from(rssFeeds).where(and(eq(rssFeeds.id, id), eq(rssFeeds.userId, userId))).limit(1))[0]; }
+export async function getGroup(userId: number, id: number) { const db = await getDb(); if (!db) return undefined; return (await db.select().from(rssGroups).where(and(eq(rssGroups.id, id), eq(rssGroups.userId, userId))).limit(1))[0]; }
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
+export async function saveParsedFeed(userId: number, feedId: number, parsed: ParsedFeed) {
+  const db = await getDb(); if (!db) return;
+  await db.update(rssFeeds).set({ title: parsed.title, description: parsed.description, faviconUrl: parsed.faviconUrl, lastFetchedAt: new Date() }).where(and(eq(rssFeeds.id, feedId), eq(rssFeeds.userId, userId)));
+  for (const article of parsed.articles) {
+    await db.insert(rssArticles).values({ feedId, ...article }).onDuplicateKeyUpdate({ set: { title: article.title, link: article.link, description: article.description, publishedAt: article.publishedAt, thumbnailUrl: article.thumbnailUrl, videoUrl: article.videoUrl, videoMimeType: article.videoMimeType } });
   }
 }
-
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
-}
-
-// TODO: add feature queries here as your schema grows.
+export async function listArticlesForFeeds(feedIds: number[], limit = 60): Promise<RssArticle[]> { const db = await getDb(); if (!db || !feedIds.length) return []; const rows = await db.select().from(rssArticles).where(inArray(rssArticles.feedId, feedIds)).orderBy(desc(rssArticles.publishedAt)).limit(limit); return sortArticlesByPublished(rows); }
+export async function groupFeedIds(userId: number, groupId: number) { const db = await getDb(); if (!db) return []; const rows = await db.select({ feedId: feedGroups.feedId }).from(feedGroups).innerJoin(rssFeeds, eq(feedGroups.feedId, rssFeeds.id)).where(and(eq(feedGroups.groupId, groupId), eq(rssFeeds.userId, userId))); return rows.map((row) => row.feedId); }
+export async function assignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.insert(feedGroups).values({ feedId, groupId }).onDuplicateKeyUpdate({ set: { feedId } }); }
+export async function unassignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.delete(feedGroups).where(and(eq(feedGroups.feedId, feedId), eq(feedGroups.groupId, groupId))); }
+export async function listAssignedFeedIds(userId: number, groupId: number) { return groupFeedIds(userId, groupId); }
