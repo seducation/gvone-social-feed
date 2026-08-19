@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
     groups: [],
   },
   allArticles: [
-    { id: 1, feedId: 7, title: "NASA update", link: "https://example.com/nasa", description: null, publishedAt: new Date("2026-08-19T08:00:00Z"), thumbnailUrl: null, videoUrl: null },
+    { id: 1, feedId: 7, title: "NASA update", link: "https://example.com/nasa", description: null, publishedAt: new Date("2026-08-19T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/nasa.mp4" },
     { id: 2, feedId: 8, title: "Reddit update", link: "https://example.com/reddit", description: null, publishedAt: new Date("2026-08-19T07:00:00Z"), thumbnailUrl: null, videoUrl: null },
     { id: 3, feedId: 9, title: "CNN update", link: "https://example.com/cnn", description: null, publishedAt: new Date("2026-08-19T06:00:00Z"), thumbnailUrl: null, videoUrl: null },
   ],
@@ -102,6 +102,36 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.queryByText("NASA update")).toBeNull();
     expect(screen.queryByText("Reddit update")).toBeNull();
     expect(screen.getByText(/Stories from your saved CNN feeds/)).toBeTruthy();
+  });
+
+  it("opens a vertical Shorts dialog containing only playable RSS video stories", () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+
+    expect(within(dialog).getByText("Video-only feed")).toBeTruthy();
+    expect(within(dialog).getByText("NASA update")).toBeTruthy();
+    expect(within(dialog).queryByText("Reddit update")).toBeNull();
+    expect(dialog.querySelectorAll("video")).toHaveLength(1);
+    expect(dialog.querySelector(".snap-y")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close Shorts" }));
+    expect(screen.queryByRole("dialog", { name: "Video Shorts" })).toBeNull();
+  });
+
+  it("shows the Shorts empty state when the library has no playable video", () => {
+    const originalVideos = mocks.allArticles.map((article) => article.videoUrl);
+    mocks.allArticles.forEach((article) => { article.videoUrl = null; });
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+
+    expect(within(dialog).getByText("No videos in your feed yet")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Add a video source" })).toBeTruthy();
+    expect(dialog.querySelectorAll("video")).toHaveLength(0);
+    mocks.allArticles.forEach((article, index) => { article.videoUrl = originalVideos[index]; });
   });
 
   it("keeps the source tabs horizontally scrollable and selectable on a narrow screen", async () => {

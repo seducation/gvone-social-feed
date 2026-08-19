@@ -83,3 +83,9 @@
 - [x] Diagnose why scheduled RSS refreshes update only part of the user’s library
 - [x] Make scheduled and manual refreshes complete across all saved feeds with clear partial-failure reporting
 - [x] Add domain-channel and refresh-completion regression coverage
+- [x] Add a Shorts button beside Add feed that opens a video-only experience
+- [x] Present playable RSS videos in a vertical, reel-style scroll stream
+- [x] Add clear empty, close, and video-source states for the Shorts experience
+- [x] Add regression coverage for video-only filtering and Shorts access
+- [x] Verify Shorts excludes text-only RSS articles when video and non-video stories are mixed
+- [x] Verify Shorts shows its empty-state CTA when no playable RSS video is saved
