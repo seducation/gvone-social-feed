@@ -69,3 +69,6 @@
 - [x] Resolve https://www.cnn.com/world to CNN’s official public RSS feed
 - [x] Treat malformed HTML or unclosed CDATA from webpage URLs as a webpage-discovery case instead of an XML parser failure
 - [x] Add CNN World parser and feed.add completion regression coverage
+- [x] Add a vertical scroll control that returns users to the top of the social feed
+- [x] Refresh the user’s saved RSS feeds once when the authenticated dashboard loads or reloads
+- [x] Add loading/status feedback and regression coverage for page-load refresh behavior

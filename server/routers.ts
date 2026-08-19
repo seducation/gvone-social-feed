@@ -43,6 +43,11 @@ export const appRouter = router({
       return { id: feedId, ...parsed, customTitle: input.customTitle || null, url: input.url };
     }),
     refresh: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ ctx, input }) => refreshOwnedFeed(ctx.user.id, input.id)),
+    refreshAll: protectedProcedure.mutation(async ({ ctx }) => {
+      const feeds = await listFeeds(ctx.user.id);
+      const results = await Promise.allSettled(feeds.map((feed) => refreshOwnedFeed(ctx.user.id, feed.id)));
+      return { attempted: results.length, refreshed: results.filter((result) => result.status === "fulfilled").length };
+    }),
     remove: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" }); const feed = await getFeed(ctx.user.id, input.id); if (!feed) throw new TRPCError({ code: "NOT_FOUND" }); await db.delete(feedGroups).where(eq(feedGroups.feedId, input.id)); await db.delete(rssFeeds).where(and(eq(rssFeeds.id, input.id), eq(rssFeeds.userId, ctx.user.id))); return { success: true }; }),
   }),
   group: router({
