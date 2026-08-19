@@ -1,4 +1,4 @@
-import { boolean, int, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, int, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -57,8 +57,35 @@ export const rssArticles = mysqlTable("rss_articles", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({ feedGuid: uniqueIndex("rss_articles_feed_guid").on(table.feedId, table.guid) }));
 
+export const chatConversations = mysqlTable("chat_conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  parentConversationId: int("parentConversationId"),
+  forkMessageId: int("forkMessageId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userUpdated: index("chat_conversations_user_updated").on(table.userId, table.updatedAt),
+  parentConversation: index("chat_conversations_parent").on(table.parentConversationId),
+}));
+
+export const chatMessages = mysqlTable("chat_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  userId: int("userId").notNull(),
+  role: varchar("role", { length: 16 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  conversationCreated: index("chat_messages_conversation_created").on(table.conversationId, table.createdAt),
+  userConversation: index("chat_messages_user_conversation").on(table.userId, table.conversationId),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type RssFeed = typeof rssFeeds.$inferSelect;
 export type RssGroup = typeof rssGroups.$inferSelect;
 export type RssArticle = typeof rssArticles.$inferSelect;
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;

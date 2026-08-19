@@ -154,3 +154,11 @@
 - [x] Add or update regression coverage for the gvone brand label
 - [x] Confirm the gvone rebrand and YouTube player-control layout repair before GitHub synchronization
 - [x] Push the latest completed gvone source to the configured GitHub main branch
+- [x] Confirm whether context-preserving chat branches are required inside the gvone app or in the current assistant conversation
+- [x] Design private branch memory so a branch inherits all messages preceding its fork point
+- [x] Implement and test private chat branching after the requested scope is confirmed
+- [x] Add owner-scoped conversation and message records with a branch fork-point reference
+- [x] Persist branch creation and inherited ancestor-memory retrieval through protected chat procedures
+- [x] Add a gvone chat workspace with conversation list, branch navigator, branch action, and composer
+- [x] Generate assistant replies from inherited branch context using the server-side AI integration
+- [x] Add migration, ownership, branch-context, and chat-workspace regression coverage

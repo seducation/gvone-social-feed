@@ -1,8 +1,9 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, RssArticle, rssArticles, rssFeeds, rssGroups, feedGroups, sourceTabPreferences, users } from "../drizzle/schema";
+import { ChatConversation, ChatMessage, InsertUser, RssArticle, chatConversations, chatMessages, rssArticles, rssFeeds, rssGroups, feedGroups, sourceTabPreferences, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import type { ParsedFeed } from "./feedParser";
+import { buildBranchHistory, type BranchHistoryMessage, type BranchNode, type DirectBranchMessage } from "./chatMemory";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() { if (!_db && process.env.DATABASE_URL) { try { _db = drizzle(process.env.DATABASE_URL); } catch { _db = null; } } return _db; }
@@ -52,4 +53,70 @@ export async function saveSourceTabOrder(userId: number, tabOrder: string[]) {
   if (!db) return false;
   await db.insert(sourceTabPreferences).values({ userId, tabOrder: JSON.stringify(tabOrder) }).onDuplicateKeyUpdate({ set: { tabOrder: JSON.stringify(tabOrder), updatedAt: new Date() } });
   return true;
+}
+
+export async function listChatConversations(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(chatConversations).where(eq(chatConversations.userId, userId)).orderBy(desc(chatConversations.updatedAt));
+}
+
+export async function getChatConversation(userId: number, conversationId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(chatConversations).where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId))).limit(1))[0];
+}
+
+export async function createChatConversation(userId: number, title: string, parentConversationId?: number | null, forkMessageId?: number | null) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(chatConversations).values({ userId, title, parentConversationId: parentConversationId ?? null, forkMessageId: forkMessageId ?? null });
+  return getChatConversation(userId, Number(result[0].insertId));
+}
+
+export async function listDirectChatMessages(userId: number, conversationId: number, throughMessageId?: number): Promise<DirectBranchMessage[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(chatMessages.userId, userId), eq(chatMessages.conversationId, conversationId)];
+  if (throughMessageId) conditions.push(lte(chatMessages.id, throughMessageId));
+  const messages = await db.select().from(chatMessages).where(and(...conditions)).orderBy(asc(chatMessages.id));
+  return messages.filter((message): message is ChatMessage & { role: "user" | "assistant" } => message.role === "user" || message.role === "assistant");
+}
+
+export async function getDirectChatMessage(userId: number, conversationId: number, messageId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(chatMessages).where(and(eq(chatMessages.id, messageId), eq(chatMessages.userId, userId), eq(chatMessages.conversationId, conversationId))).limit(1))[0];
+}
+
+export async function addChatMessage(userId: number, conversationId: number, role: "user" | "assistant", content: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(chatMessages).values({ userId, conversationId, role, content });
+  await db.update(chatConversations).set({ updatedAt: new Date() }).where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId)));
+  return getDirectChatMessage(userId, conversationId, Number(result[0].insertId));
+}
+
+export async function createChatBranch(userId: number, sourceConversationId: number, forkMessageId: number, title: string) {
+  const source = await getChatConversation(userId, sourceConversationId);
+  if (!source || !(await getDirectChatMessage(userId, sourceConversationId, forkMessageId))) return undefined;
+  return createChatConversation(userId, title, sourceConversationId, forkMessageId);
+}
+
+export async function getChatBranchHistory(userId: number, conversationId: number): Promise<BranchHistoryMessage[]> {
+  const active = await getChatConversation(userId, conversationId);
+  if (!active) return [];
+  const leafToRoot: ChatConversation[] = [];
+  let current: ChatConversation | undefined = active;
+  for (let depth = 0; current && depth < 24; depth += 1) {
+    leafToRoot.push(current);
+    current = current.parentConversationId ? await getChatConversation(userId, current.parentConversationId) : undefined;
+  }
+  const lineage = leafToRoot.reverse() as BranchNode[];
+  const messagesByConversation = new Map<number, DirectBranchMessage[]>();
+  for (let index = 0; index < lineage.length; index += 1) {
+    const nextBranch = lineage[index + 1];
+    messagesByConversation.set(lineage[index].id, await listDirectChatMessages(userId, lineage[index].id, nextBranch?.forkMessageId ?? undefined));
+  }
+  return buildBranchHistory(lineage, messagesByConversation);
 }

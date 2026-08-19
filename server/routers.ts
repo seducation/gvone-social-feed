@@ -9,6 +9,7 @@ import { feedGroups, rssArticles, rssFeeds, rssGroups } from "../drizzle/schema"
 import { ARTICLE_HISTORY_LIMIT, assignFeed, getDb, getFeed, getGroup, getSourceTabOrder, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, saveSourceTabOrder, unassignFeed } from "./db";
 import { parseFeed } from "./feedParser";
 import { refreshFeedBatch } from "./rssRefresh";
+import { chatRouter } from "./chatRouter";
 
 function normalizeFeedImportError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -89,5 +90,6 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ groupId: z.number().positive() })).query(({ ctx, input }) => groupFeedIds(ctx.user.id, input.groupId)),
     set: protectedProcedure.input(z.object({ feedId: z.number().positive(), groupId: z.number().positive(), assigned: z.boolean() })).mutation(async ({ ctx, input }) => { if (input.assigned) await assignFeed(ctx.user.id, input.feedId, input.groupId); else await unassignFeed(ctx.user.id, input.feedId, input.groupId); return { success: true }; }),
   }),
+  chat: chatRouter,
 });
 export type AppRouter = typeof appRouter;
