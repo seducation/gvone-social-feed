@@ -91,8 +91,13 @@
 - [x] Verify Shorts shows its empty-state CTA when no playable RSS video is saved
 - [x] Diagnose why supported RSS video enclosures and media tags are saved as title-only articles
 - [x] Extract direct playable video URLs from common RSS and Atom enclosure and media formats
-- [ ] Refresh existing saved sources so newly detected video fields reach article cards and Shorts
+- [x] Refresh existing saved sources so newly detected video fields reach article cards and Shorts
 - [x] Add RSS media parsing and persistence regression coverage
 - [x] Verify extracted video URLs and MIME types persist to stored RSS articles after refresh
 - [x] Verify the feed.refresh path saves parsed video URLs and MIME types for existing sources
-- [ ] Refresh the deployed saved sources and verify newly detected playable video fields are stored
+- [x] Refresh the deployed saved sources and verify newly detected playable video fields are stored
+- [x] Replace or repair the saved New York Times Technology webpage source with a direct working feed URL
+- [ ] Retry the rate-limited Reddit video source through the published refresh path
+- [ ] Verify the published refresh job completes for every saved source after repairing failed inputs
+- [x] Add a bounded retry and request profile for transient Reddit RSS rate limits
+- [x] Add regression coverage for retrying a rate-limited source without delaying the remaining refresh batch

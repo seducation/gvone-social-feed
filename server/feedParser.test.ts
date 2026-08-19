@@ -88,6 +88,7 @@ describe("parseFeed", () => {
     expect(result.title).toBe("technology");
     expect(result.articles[0]?.title).toBe("Technology story");
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://www.reddit.com/r/technology/.rss");
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ accept: expect.stringContaining("application/atom+xml"), "user-agent": expect.stringContaining("Mozilla/5.0") });
   });
 
   it("resolves the provided CNN World page to CNN's official world RSS feed", async () => {

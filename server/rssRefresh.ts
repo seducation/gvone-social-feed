@@ -11,7 +11,22 @@ export type RefreshSummary = {
   failures: Array<{ feedId: number; message: string }>;
 };
 
-export async function refreshFeedBatch(feeds: RefreshableFeed[], concurrency = 3): Promise<RefreshSummary> {
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function parseWithRateLimitRetry(url: string, retryDelayMs: number) {
+  try {
+    return await parseFeed(url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/HTTP 429/i.test(message)) throw error;
+    if (retryDelayMs > 0) await wait(retryDelayMs);
+    return parseFeed(url);
+  }
+}
+
+export async function refreshFeedBatch(feeds: RefreshableFeed[], concurrency = 3, rateLimitRetryDelayMs = 3_000): Promise<RefreshSummary> {
   const failures: RefreshSummary["failures"] = [];
   let refreshed = 0;
   let cursor = 0;
@@ -21,7 +36,7 @@ export async function refreshFeedBatch(feeds: RefreshableFeed[], concurrency = 3
     while (cursor < feeds.length) {
       const feed = feeds[cursor++];
       try {
-        const parsed = await parseFeed(feed.url);
+        const parsed = await parseWithRateLimitRetry(feed.url, rateLimitRetryDelayMs);
         await saveParsedFeed(feed.userId, feed.id, parsed);
         refreshed += 1;
       } catch (error) {

@@ -297,9 +297,18 @@ async function resolveKnownPageToFeed(url: string): Promise<string> {
   return url;
 }
 
+function feedRequestHeaders(url: string) {
+  const hostname = new URL(url).hostname;
+  const reddit = /(^|\.)reddit\.com$/i.test(hostname);
+  return {
+    "user-agent": reddit ? "Mozilla/5.0 (compatible; SignalflowRSS/1.0; +https://rssgroupfeed-jaelvwfd.manus.space)" : "RSS Group Feed/1.0",
+    accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*;q=0.8",
+  };
+}
+
 async function fetchFeedResponse(url: string, redirects = 0, timeoutMs = 15000): Promise<{ response: Response; finalUrl: string }> {
   if (redirects > 5) throw new Error("Feed redirected too many times");
-  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "RSS Group Feed/1.0" } });
+  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs), headers: feedRequestHeaders(url) });
   if (response.status >= 300 && response.status < 400) {
     const location = response.headers.get("location");
     if (!location) throw new Error(`Feed returned HTTP ${response.status} without a redirect location`);
