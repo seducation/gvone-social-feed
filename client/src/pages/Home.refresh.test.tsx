@@ -10,20 +10,29 @@ const mocks = vi.hoisted(() => ({
   invalidateArticles: vi.fn().mockResolvedValue(undefined),
   invalidateGroupArticles: vi.fn().mockResolvedValue(undefined),
   refreshAllOptions: undefined as { onSuccess?: (data: { attempted: number; refreshed: number }) => Promise<void> } | undefined,
+  dashboardData: {
+    feeds: [
+      { id: 7, title: "NASA", customTitle: null, faviconUrl: null, url: "https://m.youtube.com/@NASA" },
+      { id: 8, title: "Technology", customTitle: null, faviconUrl: null, url: "https://www.reddit.com/r/technology/.rss" },
+    ],
+    groups: [],
+  },
+  allArticles: [
+    { id: 1, feedId: 7, title: "NASA update", link: "https://example.com/nasa", description: null, publishedAt: new Date("2026-08-19T08:00:00Z"), thumbnailUrl: null, videoUrl: null },
+    { id: 2, feedId: 8, title: "Reddit update", link: "https://example.com/reddit", description: null, publishedAt: new Date("2026-08-19T07:00:00Z"), thumbnailUrl: null, videoUrl: null },
+  ],
 }));
 
-vi.mock("@/_core/hooks/useAuth", () => ({
-  useAuth: () => ({ isAuthenticated: true, loading: false, logout: vi.fn() }),
-}));
+vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ isAuthenticated: true, loading: false, logout: vi.fn() }) }));
 vi.mock("@/lib/feedError", () => ({ feedErrorMessage: (error: Error) => error.message }));
 vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ dashboard: { invalidate: mocks.invalidateDashboard }, feed: { articles: { invalidate: mocks.invalidateArticles } }, group: { articles: { invalidate: mocks.invalidateGroupArticles } } }),
-    dashboard: { useQuery: () => ({ isLoading: false, data: { feeds: [{ id: 7, title: "Example feed", customTitle: null, faviconUrl: null }], groups: [] } }) },
+    dashboard: { useQuery: () => ({ isLoading: false, data: mocks.dashboardData }) },
     feed: {
-      articles: { useQuery: () => ({ data: [] }) },
+      articles: { useQuery: () => ({ data: mocks.allArticles }) },
       add: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       refresh: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       refreshAll: { useMutation: (options: typeof mocks.refreshAllOptions) => { mocks.refreshAllOptions = options; return { mutate: mocks.refreshAllMutate, isPending: false }; } },
@@ -36,10 +45,7 @@ vi.mock("@/lib/trpc", () => ({
       rename: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       delete: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
-    assignment: {
-      list: { useQuery: () => ({ data: [] }) },
-      set: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-    },
+    assignment: { list: { useQuery: () => ({ data: [] }) }, set: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
   },
 }));
 
@@ -66,10 +72,36 @@ describe("dashboard reload refresh controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Scroll to top of feed" }));
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
 
-    await mocks.refreshAllOptions?.onSuccess?.({ attempted: 1, refreshed: 1 });
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("Updated 1 of 1 sources");
+    await mocks.refreshAllOptions?.onSuccess?.({ attempted: 2, refreshed: 2 });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Updated 2 of 2 sources");
     expect(mocks.invalidateDashboard).toHaveBeenCalledTimes(1);
     expect(mocks.invalidateArticles).toHaveBeenCalledTimes(1);
     expect(mocks.invalidateGroupArticles).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a source community channel and shows only its matching RSS stories", async () => {
+    render(<Home />);
+
+    expect(screen.getByText("NASA update")).toBeTruthy();
+    expect(screen.getByText("Reddit update")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show YouTube channels" }));
+
+    await waitFor(() => expect(screen.getByText("NASA update")).toBeTruthy());
+    expect(screen.queryByText("Reddit update")).toBeNull();
+    expect(screen.getByText("Channel roll call")).toBeTruthy();
+  });
+
+  it("keeps the source tabs horizontally scrollable and selectable on a narrow screen", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+    render(<Home />);
+
+    expect(screen.getByLabelText("Source category tabs").className).toContain("overflow-x-auto");
+    const redditTab = screen.getByRole("button", { name: "Show Reddit communities" });
+    expect(redditTab.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(redditTab);
+
+    await waitFor(() => expect(redditTab.getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.getByText("Reddit update")).toBeTruthy();
+    expect(screen.queryByText("NASA update")).toBeNull();
   });
 });

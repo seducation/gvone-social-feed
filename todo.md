@@ -72,3 +72,8 @@
 - [x] Add a vertical scroll control that returns users to the top of the social feed
 - [x] Refresh the user’s saved RSS feeds once when the authenticated dashboard loads or reloads
 - [x] Add loading/status feedback and regression coverage for page-load refresh behavior
+- [x] Add a horizontally scrollable source-category bar with channel icons and an add-source action
+- [x] Classify saved feeds into YouTube, Reddit, and other website source categories without weakening ownership isolation
+- [x] Add a Discord-inspired community navigation view that filters the article stream to the selected source category
+- [x] Add source-category filtering regression coverage for the community navigation
+- [x] Add narrow-screen regression coverage for horizontal source-tab accessibility and selection
