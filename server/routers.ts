@@ -6,7 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { feedGroups, rssFeeds, rssGroups } from "../drizzle/schema";
-import { assignFeed, getDb, getFeed, getGroup, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, unassignFeed } from "./db";
+import { ARTICLE_HISTORY_LIMIT, assignFeed, getDb, getFeed, getGroup, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, unassignFeed } from "./db";
 import { parseFeed } from "./feedParser";
 import { refreshFeedBatch } from "./rssRefresh";
 
@@ -33,7 +33,10 @@ export const appRouter = router({
   dashboard: protectedProcedure.query(async ({ ctx }) => ({ feeds: await listFeeds(ctx.user.id), groups: await listGroups(ctx.user.id) })),
   feed: router({
     list: protectedProcedure.query(({ ctx }) => listFeeds(ctx.user.id)),
-    articles: protectedProcedure.query(async ({ ctx }) => listArticlesForFeeds((await listFeeds(ctx.user.id)).map((feed) => feed.id))),
+    articles: protectedProcedure.query(async ({ ctx }) => {
+      const feeds = await listFeeds(ctx.user.id);
+      return listArticlesForFeeds(feeds.map((feed) => feed.id), feeds.length * ARTICLE_HISTORY_LIMIT);
+    }),
     add: protectedProcedure.input(z.object({ url: z.string().url(), customTitle: z.string().trim().max(255).optional() })).mutation(async ({ ctx, input }) => {
       let parsed;
       try { parsed = await parseFeed(input.url); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: normalizeFeedImportError(error) }); }
@@ -55,7 +58,7 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(160) })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" }); const result = await db.insert(rssGroups).values({ userId: ctx.user.id, name: input.name }); return { id: Number(result[0].insertId), name: input.name }; }),
     rename: protectedProcedure.input(z.object({ id: z.number().positive(), name: z.string().trim().min(1).max(160) })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db || !(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); await db.update(rssGroups).set({ name: input.name }).where(and(eq(rssGroups.id, input.id), eq(rssGroups.userId, ctx.user.id))); return { success: true }; }),
     delete: protectedProcedure.input(z.object({ id: z.number().positive() })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db || !(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); await db.delete(feedGroups).where(eq(feedGroups.groupId, input.id)); await db.delete(rssGroups).where(and(eq(rssGroups.id, input.id), eq(rssGroups.userId, ctx.user.id))); return { success: true }; }),
-    articles: protectedProcedure.input(z.object({ id: z.number().positive() })).query(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = await groupFeedIds(ctx.user.id, input.id); return listArticlesForFeeds(ids); }),
+    articles: protectedProcedure.input(z.object({ id: z.number().positive() })).query(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = await groupFeedIds(ctx.user.id, input.id); return listArticlesForFeeds(ids, ids.length * ARTICLE_HISTORY_LIMIT); }),
     refresh: protectedProcedure.input(z.object({ id: z.number().positive() })).mutation(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = new Set(await groupFeedIds(ctx.user.id, input.id)); return refreshFeedBatch((await listFeeds(ctx.user.id)).filter((feed) => ids.has(feed.id))); }),
   }),
   assignment: router({

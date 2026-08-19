@@ -19,6 +19,7 @@ export type ParsedFeed = {
 };
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", cdataPropName: "__cdata", maxNestedTags: 10000 });
+export const MAX_SOURCE_ARTICLES = 500;
 
 function asText(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -272,7 +273,7 @@ function youtubePageToFeed(html: string, pageUrl: string): ParsedFeed {
   };
   walk(data);
   const pageTitle = html.match(/<title[^>]*>([^<]+?)(?:\s+-\s+YouTube)?<\/title>/i)?.[1]?.trim() || new URL(pageUrl).pathname.replace(/^\/@?/, "") || "YouTube channel";
-  return { title: pageTitle, description: null, faviconUrl: "https://www.youtube.com/favicon.ico", articles: articles.slice(0, 100) };
+  return { title: pageTitle, description: null, faviconUrl: "https://www.youtube.com/favicon.ico", articles: articles.slice(0, MAX_SOURCE_ARTICLES) };
 }
 
 async function parseYouTubeChannelPage(url: string): Promise<ParsedFeed> {
@@ -372,6 +373,6 @@ export async function parseFeed(url: string, timeoutMs = 15000, state?: ParseSta
     title: asText(first(childByLocalName(rss, "title") ?? childByLocalName(atom, "title"))) || base.hostname,
     description: (asText(first(childByLocalName(rss, "description") ?? childByLocalName(atom, "subtitle"))) || null),
     faviconUrl: await discoverFavicon(finalUrl),
-    articles: items.slice(0, 100),
+    articles: items.slice(0, MAX_SOURCE_ARTICLES),
   };
 }

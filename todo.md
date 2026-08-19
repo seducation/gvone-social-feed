@@ -104,3 +104,11 @@
 - [x] Retry a transient upstream HTTP 502, 503, or 504 once during scheduled RSS refreshes
 - [x] Verify the published refresh remains healthy and schedules the next retry when an upstream source still returns HTTP 503
 - [x] Use a Reddit-specific bounded retry delay that gives upstream rate limits time to clear
+- [x] Fix overlapping YouTube and video tiles in the vertical Shorts stream
+- [x] Pause non-visible videos and auto-play only the actively visible Short during scrolling
+- [x] Expand per-source RSS import and retention so the video feed can show the available source history, not only recent entries
+- [x] Add layout, playback-lifecycle, and expanded-history regression coverage
+- [x] Add a component-level active-Short transition test that verifies outgoing native video pauses and the incoming video plays
+- [x] Add an embedded YouTube Shorts regression for stable full-height tiles and off-screen pause messaging
+- [x] Exercise the Shorts IntersectionObserver path in a browser-like test harness
+- [x] Assert at component level that an off-screen embedded YouTube Short dispatches the pause helper

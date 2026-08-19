@@ -16,6 +16,7 @@ export async function getUserByOpenId(openId: string) { const db = await getDb()
 
 export function ownsResource(userId: number, resource: { userId: number } | undefined) { return Boolean(resource && resource.userId === userId); }
 export function sortArticlesByPublished<T extends { publishedAt: Date | null }>(articles: T[]) { return [...articles].sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)); }
+export const ARTICLE_HISTORY_LIMIT = 500;
 
 export async function listFeeds(userId: number) { const db = await getDb(); if (!db) return []; return db.select().from(rssFeeds).where(eq(rssFeeds.userId, userId)).orderBy(desc(rssFeeds.createdAt)); }
 export async function listGroups(userId: number) { const db = await getDb(); if (!db) return []; return db.select().from(rssGroups).where(eq(rssGroups.userId, userId)).orderBy(rssGroups.name); }
@@ -29,7 +30,7 @@ export async function saveParsedFeed(userId: number, feedId: number, parsed: Par
     await db.insert(rssArticles).values({ feedId, ...article }).onDuplicateKeyUpdate({ set: { title: article.title, link: article.link, description: article.description, publishedAt: article.publishedAt, thumbnailUrl: article.thumbnailUrl, videoUrl: article.videoUrl, videoMimeType: article.videoMimeType } });
   }
 }
-export async function listArticlesForFeeds(feedIds: number[], limit = 60): Promise<RssArticle[]> { const db = await getDb(); if (!db || !feedIds.length) return []; const rows = await db.select().from(rssArticles).where(inArray(rssArticles.feedId, feedIds)).orderBy(desc(rssArticles.publishedAt)).limit(limit); return sortArticlesByPublished(rows); }
+export async function listArticlesForFeeds(feedIds: number[], limit = ARTICLE_HISTORY_LIMIT): Promise<RssArticle[]> { const db = await getDb(); if (!db || !feedIds.length) return []; const rows = await db.select().from(rssArticles).where(inArray(rssArticles.feedId, feedIds)).orderBy(desc(rssArticles.publishedAt)).limit(limit); return sortArticlesByPublished(rows); }
 export async function groupFeedIds(userId: number, groupId: number) { const db = await getDb(); if (!db) return []; const rows = await db.select({ feedId: feedGroups.feedId }).from(feedGroups).innerJoin(rssFeeds, eq(feedGroups.feedId, rssFeeds.id)).where(and(eq(feedGroups.groupId, groupId), eq(rssFeeds.userId, userId))); return rows.map((row) => row.feedId); }
 export async function assignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.insert(feedGroups).values({ feedId, groupId }).onDuplicateKeyUpdate({ set: { feedId } }); }
 export async function unassignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.delete(feedGroups).where(and(eq(feedGroups.feedId, feedId), eq(feedGroups.groupId, groupId))); }

@@ -1,7 +1,27 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as shortsPlayback from "@/lib/shortsPlayback";
+
+Object.defineProperty(HTMLMediaElement.prototype, "play", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: vi.fn() });
+
+let shortObserverCallback: IntersectionObserverCallback | undefined;
+
+function installShortsObserver() {
+  class ShortsObserver {
+    constructor(callback: IntersectionObserverCallback) { shortObserverCallback = callback; }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+    readonly root = null;
+    readonly rootMargin = "0px";
+    readonly thresholds = [0.6, 0.8];
+  }
+  Object.defineProperty(globalThis, "IntersectionObserver", { configurable: true, value: ShortsObserver });
+}
 
 const mocks = vi.hoisted(() => ({
   refreshAllMutate: vi.fn(),
@@ -62,6 +82,8 @@ describe("dashboard reload refresh controls", () => {
     mocks.invalidateArticles.mockClear();
     mocks.invalidateGroupArticles.mockClear();
     mocks.refreshAllOptions = undefined;
+    shortObserverCallback = undefined;
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
   });
 
   it("refreshes saved feeds once after dashboard load and exposes feedback controls", async () => {
@@ -118,6 +140,72 @@ describe("dashboard reload refresh controls", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Close Shorts" }));
     expect(screen.queryByRole("dialog", { name: "Video Shorts" })).toBeNull();
+  });
+
+  it("keeps each Short in its own stable tile and mutes native short videos", () => {
+    mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+
+    expect(dialog.querySelectorAll("[data-short-id]")).toHaveLength(2);
+    expect(dialog.querySelectorAll("video")).toHaveLength(2);
+    expect(Array.from(dialog.querySelectorAll("video")).every((video) => video.muted)).toBe(true);
+    expect(Array.from(dialog.querySelectorAll("video")).every((video) => video.className.includes("absolute inset-0"))).toBe(true);
+    mocks.allArticles.pop();
+  });
+
+  it("switches playback to the newly visible Short and pauses the video that scrolled away", async () => {
+    mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
+    installShortsObserver();
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    await waitFor(() => expect(shortObserverCallback).toBeTypeOf("function"));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const cards = Array.from(dialog.querySelectorAll<HTMLElement>("[data-short-id]"));
+    const videos = Array.from(dialog.querySelectorAll("video"));
+    play.mockClear();
+    pause.mockClear();
+
+    act(() => shortObserverCallback?.([{ target: cards[1], isIntersecting: true, intersectionRatio: 0.9 } as unknown as IntersectionObserverEntry], {} as IntersectionObserver));
+
+    await waitFor(() => expect(pause.mock.instances).toContain(videos[0]));
+    expect(play.mock.instances).toContain(videos[1]);
+    mocks.allArticles.pop();
+  });
+
+  it("keeps embedded YouTube Shorts in a stable tile and sends an off-screen pause command", async () => {
+    const first = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = first.videoUrl;
+    const originalMimeType = first.videoMimeType;
+    first.videoUrl = "https://www.youtube.com/embed/example";
+    first.videoMimeType = "text/html";
+    mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
+    installShortsObserver();
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    await waitFor(() => expect(shortObserverCallback).toBeTypeOf("function"));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const cards = Array.from(dialog.querySelectorAll<HTMLElement>("[data-short-id]"));
+    const frame = dialog.querySelector<HTMLIFrameElement>('iframe[title="Embedded feed video"]')!;
+    const pauseEmbeddedShort = vi.spyOn(shortsPlayback, "pauseEmbeddedShort");
+
+    expect(frame.className).toContain("absolute inset-0");
+    expect(frame.src).toContain("enablejsapi=1");
+    act(() => shortObserverCallback?.([{ target: cards[1], isIntersecting: true, intersectionRatio: 0.9 } as unknown as IntersectionObserverEntry], {} as IntersectionObserver));
+
+    await waitFor(() => expect(cards[0].dataset.shortActive).toBe("false"));
+    expect(cards[1].dataset.shortActive).toBe("true");
+    expect(pauseEmbeddedShort).toHaveBeenCalledWith(frame);
+    pauseEmbeddedShort.mockRestore();
+    mocks.allArticles.pop();
+    first.videoUrl = originalUrl;
+    first.videoMimeType = originalMimeType;
   });
 
   it("shows the Shorts empty state when the library has no playable video", () => {

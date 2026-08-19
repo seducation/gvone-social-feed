@@ -202,4 +202,14 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.title).toBe("Atom story");
     expect(result.articles[0]?.link).toBe("https://example.com/story");
   });
+
+  it("keeps the available source history rather than truncating a feed to its latest 100 articles", async () => {
+    const items = Array.from({ length: 125 }, (_, index) => `<item><guid>history-${index}</guid><title>History ${index}</title><link>https://example.com/history/${index}</link></item>`).join("");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<?xml version="1.0"?><rss><channel><title>Archive feed</title>${items}</channel></rss>`, { status: 200 })));
+
+    const result = await parseFeed("https://example.com/archive.xml");
+
+    expect(result.articles).toHaveLength(125);
+    expect(result.articles.at(-1)?.guid).toBe("history-124");
+  });
 });
