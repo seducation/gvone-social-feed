@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, RssArticle, rssArticles, rssFeeds, rssGroups, feedGroups, users } from "../drizzle/schema";
+import { InsertUser, RssArticle, rssArticles, rssFeeds, rssGroups, feedGroups, sourceTabPreferences, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import type { ParsedFeed } from "./feedParser";
 
@@ -35,3 +35,21 @@ export async function groupFeedIds(userId: number, groupId: number) { const db =
 export async function assignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.insert(feedGroups).values({ feedId, groupId }).onDuplicateKeyUpdate({ set: { feedId } }); }
 export async function unassignFeed(userId: number, feedId: number, groupId: number) { const db = await getDb(); if (!db || !ownsResource(userId, await getFeed(userId, feedId)) || !ownsResource(userId, await getGroup(userId, groupId))) return; await db.delete(feedGroups).where(and(eq(feedGroups.feedId, feedId), eq(feedGroups.groupId, groupId))); }
 export async function listAssignedFeedIds(userId: number, groupId: number) { return groupFeedIds(userId, groupId); }
+
+export async function getSourceTabOrder(userId: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const preference = (await db.select().from(sourceTabPreferences).where(eq(sourceTabPreferences.userId, userId)).limit(1))[0];
+  if (!preference) return [];
+  try {
+    const order = JSON.parse(preference.tabOrder);
+    return Array.isArray(order) && order.every((key) => typeof key === "string") ? order : [];
+  } catch { return []; }
+}
+
+export async function saveSourceTabOrder(userId: number, tabOrder: string[]) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.insert(sourceTabPreferences).values({ userId, tabOrder: JSON.stringify(tabOrder) }).onDuplicateKeyUpdate({ set: { tabOrder: JSON.stringify(tabOrder), updatedAt: new Date() } });
+  return true;
+}

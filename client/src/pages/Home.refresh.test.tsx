@@ -25,6 +25,7 @@ function installShortsObserver() {
 
 const mocks = vi.hoisted(() => ({
   refreshAllMutate: vi.fn(),
+  setSourceTabOrderMutate: vi.fn(),
   createGroupWithFeedsMutate: vi.fn(),
   setEnabledMutate: vi.fn(),
   refetchManagedFeeds: vi.fn().mockResolvedValue(undefined),
@@ -32,6 +33,8 @@ const mocks = vi.hoisted(() => ({
   invalidateDashboard: vi.fn().mockResolvedValue(undefined),
   invalidateArticles: vi.fn().mockResolvedValue(undefined),
   invalidateGroupArticles: vi.fn().mockResolvedValue(undefined),
+  refetchSourceTabOrder: vi.fn().mockResolvedValue(undefined),
+  sourceTabOrder: [] as string[],
   refreshAllOptions: undefined as { onSuccess?: (data: { attempted: number; refreshed: number }) => Promise<void> } | undefined,
   dashboardData: {
     feeds: [
@@ -61,6 +64,10 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ dashboard: { invalidate: mocks.invalidateDashboard }, feed: { articles: { invalidate: mocks.invalidateArticles } }, group: { articles: { invalidate: mocks.invalidateGroupArticles } } }),
     dashboard: { useQuery: () => ({ isLoading: false, data: mocks.dashboardData }) },
+    sourceTabs: {
+      order: { useQuery: () => ({ data: mocks.sourceTabOrder, refetch: mocks.refetchSourceTabOrder }) },
+      setOrder: { useMutation: () => ({ mutate: mocks.setSourceTabOrderMutate, isPending: false }) },
+    },
     feed: {
       articles: { useQuery: () => ({ data: mocks.allArticles }) },
       list: { useQuery: () => ({ data: mocks.managedFeeds, refetch: mocks.refetchManagedFeeds }) },
@@ -89,6 +96,7 @@ describe("dashboard reload refresh controls", () => {
   afterEach(() => {
     cleanup();
     mocks.refreshAllMutate.mockClear();
+    mocks.setSourceTabOrderMutate.mockClear();
     mocks.createGroupWithFeedsMutate.mockClear();
     mocks.setEnabledMutate.mockClear();
     mocks.refetchManagedFeeds.mockClear();
@@ -96,6 +104,8 @@ describe("dashboard reload refresh controls", () => {
     mocks.invalidateDashboard.mockClear();
     mocks.invalidateArticles.mockClear();
     mocks.invalidateGroupArticles.mockClear();
+    mocks.refetchSourceTabOrder.mockClear();
+    mocks.sourceTabOrder.splice(0);
     mocks.refreshAllOptions = undefined;
     mocks.dashboardData.groups.splice(0);
     shortObserverCallback = undefined;
@@ -143,7 +153,7 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.getByText(/Stories from your saved CNN feeds/)).toBeTruthy();
   });
 
-  it("places Shorts after All in the scrolling tabs and keeps Manage at the source bar’s far right", () => {
+  it("places Shorts before All in the scrolling tabs and keeps Manage at the source bar’s far right", () => {
     render(<Home />);
 
     const sourceBar = document.querySelector("[data-source-bar]");
@@ -151,8 +161,27 @@ describe("dashboard reload refresh controls", () => {
     const all = within(sourceBar as HTMLElement).getByRole("button", { name: /Show All/ });
     const shorts = within(sourceBar as HTMLElement).getByRole("button", { name: "Open Shorts" });
     const manage = within(sourceBar as HTMLElement).getByRole("button", { name: "Manage RSS sources" });
-    expect(all.compareDocumentPosition(shorts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(shorts.compareDocumentPosition(manage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(shorts.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(all.compareDocumentPosition(manage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(shorts.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(shorts);
+    expect(shorts.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("exposes drag-and-keyboard ordering only for editable source tabs while preserving fixed controls", () => {
+    render(<Home />);
+
+    const sourceBar = document.querySelector("[data-source-bar]") as HTMLElement;
+    const all = within(sourceBar).getByRole("button", { name: /Show All/ });
+    const shorts = within(sourceBar).getByRole("button", { name: "Open Shorts" });
+    const manage = within(sourceBar).getByRole("button", { name: "Manage RSS sources" });
+    const youtube = within(sourceBar).getByRole("button", { name: "Show YouTube channels" });
+
+    expect(all.draggable).toBe(false);
+    expect(shorts.draggable).toBe(false);
+    expect(manage.draggable).toBe(false);
+    expect(youtube.draggable).toBe(true);
+    expect(youtube.getAttribute("aria-keyshortcuts")).toBe("Alt+ArrowLeft Alt+ArrowRight");
   });
 
   it("opens the separate source manager from the header and lets a reader open or disable a private RSS source", async () => {

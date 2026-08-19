@@ -37,6 +37,12 @@ export const feedGroups = mysqlTable("feed_groups", {
   groupId: int("groupId").notNull(),
 }, (table) => ({ pair: uniqueIndex("feed_groups_pair").on(table.feedId, table.groupId) }));
 
+export const sourceTabPreferences = mysqlTable("source_tab_preferences", {
+  userId: int("userId").primaryKey(),
+  tabOrder: text("tabOrder").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const rssArticles = mysqlTable("rss_articles", {
   id: int("id").autoincrement().primaryKey(),
   feedId: int("feedId").notNull(),

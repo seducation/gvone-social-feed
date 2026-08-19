@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSourceChannels, filterArticlesForSourceChannel, getSourceChannelKey, sourceDomain } from "./sourceCategories";
+import { applySourceTabOrder, buildSourceChannels, filterArticlesForSourceChannel, getSourceChannelKey, moveEditableSourceTab, sourceDomain } from "./sourceCategories";
 
 describe("RSS source community channels", () => {
   const feeds = [
@@ -33,5 +33,15 @@ describe("RSS source community channels", () => {
     const channel = buildSourceChannels(feeds).find((item) => item.key === "domain:nytimes.com");
     const articles = [{ feedId: 1, title: "NASA" }, { feedId: 4, title: "NYT World" }, { feedId: 6, title: "CNN World" }];
     expect(filterArticlesForSourceChannel(articles, channel)).toEqual([{ feedId: 4, title: "NYT World" }]);
+  });
+
+  it("keeps All fixed while applying a saved order only to editable source tabs", () => {
+    const ordered = applySourceTabOrder(buildSourceChannels(feeds), ["domain:nytimes.com", "reddit"]);
+    expect(ordered.map((channel) => channel.key)).toEqual(["all", "domain:nytimes.com", "reddit", "youtube", "domain:cnn.com"]);
+  });
+
+  it("moves one editable tab before another without inventing or removing keys", () => {
+    expect(moveEditableSourceTab(["youtube", "reddit", "domain:cnn.com"], "domain:cnn.com", "youtube")).toEqual(["domain:cnn.com", "youtube", "reddit"]);
+    expect(moveEditableSourceTab(["youtube", "reddit"], "youtube", "missing")).toEqual(["youtube", "reddit"]);
   });
 });

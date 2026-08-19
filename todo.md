@@ -135,3 +135,10 @@
 - [x] Order the source-bar actions with Shorts on the left and Manage on the far right
 - [x] Place Shorts immediately beside All in the source tab strip while keeping Manage at the far right
 - [x] Match Shorts to source-tab sizing and make it scroll with the source tabs
+- [x] Keep Shorts, All, and Manage fixed while allowing only editable RSS source tabs to be reordered
+- [x] Persist each user’s custom editable source-tab order privately
+- [x] Add drag-and-drop interaction and keyboard-accessible ordering for editable source tabs
+- [x] Make Shorts a fixed icon-only tab with a distinct accent color to the left of All
+- [x] Give the fixed Shorts tab the same selected, hover, scroll, and compact behavior as a normal source tab
+- [x] Move the fixed icon-only Shorts tab to the left of All while keeping Manage fixed at the far right
+- [x] Give Shorts true source-tab semantics and active-state parity with regression coverage

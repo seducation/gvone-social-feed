@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { feedErrorMessage } from "@/lib/feedError";
 import { shouldStartPageLoadRefresh } from "@/lib/dashboardRefresh";
 import { pauseEmbeddedShort, playEmbeddedShort, readEmbeddedShortMuteState, requestEmbeddedShortMuteState, setEmbeddedShortMuted, syncShortPlayback } from "@/lib/shortsPlayback";
-import { buildSourceChannels, filterArticlesForSourceChannel, type SourceChannelKey, type SourceChannelKind } from "@/lib/sourceCategories";
+import { applySourceTabOrder, buildSourceChannels, filterArticlesForSourceChannel, moveEditableSourceTab, type SourceChannelKey, type SourceChannelKind } from "@/lib/sourceCategories";
 import { SourceManager } from "@/components/SourceManager";
 import { GroupBuilder } from "@/components/GroupBuilder";
 import { startLogin } from "@/const";
@@ -69,6 +69,8 @@ export default function Home() {
   const [loadedShortIds, setLoadedShortIds] = useState<number[]>([]);
   const [shortsSoundEnabled, setShortsSoundEnabled] = useState(() => localStorage.getItem("signalflow-shorts-sound") === "on");
   const [isSourceBarCompact, setIsSourceBarCompact] = useState(false);
+  const [sourceTabOrderOverride, setSourceTabOrderOverride] = useState<string[] | null>(null);
+  const [draggedSourceTabKey, setDraggedSourceTabKey] = useState<string | null>(null);
   const [showGroups, setShowGroups] = useState(false);
   const [showGroupBuilder, setShowGroupBuilder] = useState(false);
   const [showAssign, setShowAssign] = useState<number | null>(null);
@@ -89,6 +91,7 @@ export default function Home() {
   const allArticles = trpc.feed.articles.useQuery(undefined, { enabled: auth.isAuthenticated, refetchInterval: 60_000 });
   const managedFeeds = trpc.feed.list.useQuery(undefined, { enabled: auth.isAuthenticated && showSourceManager });
   const managedFeedArticles = trpc.feed.sourceArticles.useQuery({ id: managedFeedId ?? 0 }, { enabled: showSourceManager && Boolean(managedFeedId) });
+  const sourceTabOrderQuery = trpc.sourceTabs.order.useQuery(undefined, { enabled: auth.isAuthenticated });
 
   const addFeed = trpc.feed.add.useMutation({
     onSuccess: () => {
@@ -170,8 +173,14 @@ export default function Home() {
   const deleteGroup = trpc.group.delete.useMutation({ onSuccess: () => { toast.success("Collection deleted"); setActiveGroup(null); utils.dashboard.invalidate(); }, onError: (error) => toast.error(error.message) });
   const assignment = trpc.assignment.list.useQuery({ groupId: showAssign ?? 0 }, { enabled: Boolean(showAssign) });
   const setAssignment = trpc.assignment.set.useMutation({ onSuccess: () => { assignment.refetch(); toast.success("Collection updated"); }, onError: (error) => toast.error(error.message) });
+  const saveSourceTabOrder = trpc.sourceTabs.setOrder.useMutation({
+    onSuccess: () => { sourceTabOrderQuery.refetch(); },
+    onError: (error) => { setSourceTabOrderOverride(null); toast.error(error.message); },
+  });
 
-  const sourceChannels = useMemo(() => buildSourceChannels(feeds), [feeds]);
+  const baseSourceChannels = useMemo(() => buildSourceChannels(feeds), [feeds]);
+  const sourceTabOrder = sourceTabOrderOverride ?? sourceTabOrderQuery.data ?? [];
+  const sourceChannels = useMemo(() => applySourceTabOrder(baseSourceChannels, sourceTabOrder), [baseSourceChannels, sourceTabOrder]);
   const activeChannel = sourceChannels.find((channel) => channel.key === activeCategory) ?? sourceChannels[0];
   const baseArticles = activeGroup ? groupArticles.data ?? [] : allArticles.data ?? [];
   const videoArticles = useMemo(() => (allArticles.data ?? []).filter((article) => Boolean(article.videoUrl)), [allArticles.data]);
@@ -287,6 +296,27 @@ export default function Home() {
     setActiveCategory(category);
   };
 
+  const persistSourceTabOrder = (keys: string[]) => {
+    setSourceTabOrderOverride(keys);
+    saveSourceTabOrder.mutate({ keys });
+  };
+
+  const reorderEditableSourceTab = (movingKey: string, targetKey: string) => {
+    const editableKeys = sourceChannels.filter((channel) => channel.kind !== "all").map((channel) => channel.key);
+    const nextOrder = moveEditableSourceTab(editableKeys, movingKey, targetKey);
+    if (nextOrder.join("|") !== editableKeys.join("|")) persistSourceTabOrder(nextOrder);
+  };
+
+  const handleSourceTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, key: SourceChannelKey) => {
+    if (!event.altKey || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const editableKeys = sourceChannels.filter((channel) => channel.kind !== "all").map((channel) => channel.key);
+    const index = editableKeys.indexOf(key);
+    const targetKey = editableKeys[index + (event.key === "ArrowLeft" ? -1 : 1)];
+    if (!targetKey) return;
+    event.preventDefault();
+    reorderEditableSourceTab(key, targetKey);
+  };
+
   const toggleShortsSound = () => {
     const nextSoundEnabled = !shortsSoundEnabled;
     setShortsSoundEnabled(nextSoundEnabled);
@@ -318,12 +348,13 @@ export default function Home() {
     <section data-source-bar data-compact={isSourceBarCompact} className={`sticky top-[76px] z-20 border-b border-[#e6e8ed] bg-[#f7f8fa]/95 px-4 backdrop-blur-xl transition-[padding] duration-200 ease-out sm:px-8 ${isSourceBarCompact ? "py-1.5" : "py-2.5"}`}>
       <div className="mx-auto flex max-w-[1440px] items-center gap-2 py-0.5">
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Source category tabs">
-          {sourceChannels.map((channel, index) => {
+          {sourceChannels.map((channel) => {
           const selected = !activeGroup && activeCategory === channel.key;
-          return <React.Fragment key={channel.key}><button type="button" onClick={() => selectCategory(channel.key)} aria-label={`Show ${channel.label}`} aria-pressed={selected} className={`group flex shrink-0 items-center transition ${isSourceBarCompact ? "min-w-[72px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"} ${selected ? "bg-[#14161a] text-white shadow-[0_8px_18px_rgba(24,22,32,.14)]" : "text-[#657080] hover:bg-white"}`}>
+          const editable = channel.kind !== "all";
+          return <React.Fragment key={channel.key}>{channel.kind === "all" && <button type="button" onClick={() => setShowShorts(true)} aria-label="Open Shorts" aria-pressed={showShorts} aria-haspopup="dialog" title="Open Shorts" className={`group grid shrink-0 place-items-center transition ${isSourceBarCompact ? "h-10 w-10 rounded-xl" : "h-20 w-16 rounded-2xl"} ${showShorts ? "bg-[#704ee5] text-white shadow-[0_8px_18px_rgba(112,78,229,.24)]" : "bg-[#f0eaff] text-[#704ee5] shadow-[0_8px_18px_rgba(112,78,229,.12)] hover:bg-[#e7dcff]"}`}><span className={`grid place-items-center ${showShorts ? "bg-white/15" : "bg-white/70"} ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"}`}><Video className="h-4 w-4" /></span></button>}<button type="button" draggable={editable} onDragStart={(event) => { if (!editable) return; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", channel.key); setDraggedSourceTabKey(channel.key); }} onDragEnd={() => setDraggedSourceTabKey(null)} onDragOver={(event) => { if (editable && draggedSourceTabKey && draggedSourceTabKey !== channel.key) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const movingKey = event.dataTransfer.getData("text/plain") || draggedSourceTabKey; if (editable && movingKey) reorderEditableSourceTab(movingKey, channel.key); setDraggedSourceTabKey(null); }} onKeyDown={(event) => editable && handleSourceTabKeyDown(event, channel.key)} onClick={() => selectCategory(channel.key)} aria-label={`Show ${channel.label}`} aria-pressed={selected} aria-keyshortcuts={editable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} title={editable ? "Drag to reorder. Use Alt + Left/Right Arrow to reorder with a keyboard." : undefined} className={`group flex shrink-0 items-center transition ${isSourceBarCompact ? "min-w-[72px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"} ${selected ? "bg-[#14161a] text-white shadow-[0_8px_18px_rgba(24,22,32,.14)]" : "text-[#657080] hover:bg-white"} ${editable ? "cursor-grab active:cursor-grabbing" : ""} ${draggedSourceTabKey === channel.key ? "scale-95 opacity-45" : ""}`}>
             <span className={`grid place-items-center ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"} ${selected ? "bg-white/12 text-white" : channelTint(channel.kind)}`}><ChannelIcon kind={channel.kind} className="h-4 w-4" /></span>
             <span className={`${isSourceBarCompact ? "max-w-[104px] text-xs" : "max-w-[78px] text-[11px]"} truncate font-semibold`}>{channel.shortLabel}</span>{!isSourceBarCompact && <span className={`text-[10px] ${selected ? "text-white/55" : "text-[#a0a8b5]"}`}>{channel.feedIds.length} source{channel.feedIds.length === 1 ? "" : "s"}</span>}
-          </button>{index === 0 && <button type="button" onClick={() => setShowShorts(true)} aria-label="Open Shorts" className={`group flex shrink-0 items-center bg-[#14161a] text-white shadow-[0_8px_18px_rgba(24,22,32,.14)] transition hover:bg-[#34343d] ${isSourceBarCompact ? "min-w-[72px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"}`}><span className={`grid place-items-center bg-white/12 text-white ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"}`}><Video className="h-4 w-4" /></span><span className={`${isSourceBarCompact ? "max-w-[104px] text-xs" : "max-w-[78px] text-[11px]"} truncate font-semibold`}>Shorts</span>{!isSourceBarCompact && <span className="text-[10px] text-white/55">{videoArticles.length} video{videoArticles.length === 1 ? "" : "s"}</span>}</button>}</React.Fragment>;
+          </button></React.Fragment>;
           })}
           <button type="button" onClick={() => setShowAdd(true)} aria-label="Add a source" className={`flex shrink-0 items-center text-[#697281] transition hover:bg-white ${isSourceBarCompact ? "min-w-[88px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"}`}><span className={`grid place-items-center bg-white text-[#635bff] shadow-sm ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"}`}><Plus className="h-4 w-4" /></span><span className={`${isSourceBarCompact ? "text-xs" : "text-[11px]"} font-semibold`}>Add source</span>{!isSourceBarCompact && <span className="text-[10px] text-[#a0a8b5]">New channel</span>}</button>
         </div>

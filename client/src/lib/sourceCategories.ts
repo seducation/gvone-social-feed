@@ -81,6 +81,25 @@ export function buildSourceChannels(feeds: SourceFeed[]): SourceChannel[] {
   return [...channels, ...domainChannels];
 }
 
+export function applySourceTabOrder(channels: SourceChannel[], orderedKeys: string[]): SourceChannel[] {
+  const fixed = channels.find((channel) => channel.kind === "all");
+  const editable = channels.filter((channel) => channel.kind !== "all");
+  const position = new Map(orderedKeys.map((key, index) => [key, index]));
+  const ordered = [...editable].sort((left, right) => {
+    const leftPosition = position.get(left.key) ?? Number.MAX_SAFE_INTEGER;
+    const rightPosition = position.get(right.key) ?? Number.MAX_SAFE_INTEGER;
+    return leftPosition === rightPosition ? 0 : leftPosition - rightPosition;
+  });
+  return fixed ? [fixed, ...ordered] : ordered;
+}
+
+export function moveEditableSourceTab(keys: string[], movingKey: string, targetKey: string): string[] {
+  if (movingKey === targetKey || !keys.includes(movingKey) || !keys.includes(targetKey)) return keys;
+  const withoutMoving = keys.filter((key) => key !== movingKey);
+  const targetIndex = withoutMoving.indexOf(targetKey);
+  return [...withoutMoving.slice(0, targetIndex), movingKey, ...withoutMoving.slice(targetIndex)];
+}
+
 export function filterArticlesForSourceChannel<T extends SourceArticle>(articles: T[], channel: SourceChannel | undefined): T[] {
   if (!channel) return [];
   const feedIds = new Set(channel.feedIds);

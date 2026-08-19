@@ -6,7 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { feedGroups, rssArticles, rssFeeds, rssGroups } from "../drizzle/schema";
-import { ARTICLE_HISTORY_LIMIT, assignFeed, getDb, getFeed, getGroup, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, unassignFeed } from "./db";
+import { ARTICLE_HISTORY_LIMIT, assignFeed, getDb, getFeed, getGroup, getSourceTabOrder, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, saveSourceTabOrder, unassignFeed } from "./db";
 import { parseFeed } from "./feedParser";
 import { refreshFeedBatch } from "./rssRefresh";
 
@@ -32,6 +32,13 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => { ctx.res.clearCookie(COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 }); return { success: true } as const; }),
   }),
   dashboard: protectedProcedure.query(async ({ ctx }) => ({ feeds: await listFeeds(ctx.user.id, true), groups: await listGroups(ctx.user.id) })),
+  sourceTabs: router({
+    order: protectedProcedure.query(({ ctx }) => getSourceTabOrder(ctx.user.id)),
+    setOrder: protectedProcedure.input(z.object({ keys: z.array(z.string().trim().min(1).max(255)).max(100).refine((keys) => new Set(keys).size === keys.length, "Tab keys must be unique") })).mutation(async ({ ctx, input }) => {
+      if (!(await saveSourceTabOrder(ctx.user.id, input.keys))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not save source tab order" });
+      return { success: true, keys: input.keys };
+    }),
+  }),
   feed: router({
     list: protectedProcedure.query(({ ctx }) => listFeeds(ctx.user.id)),
     articles: protectedProcedure.query(async ({ ctx }) => {
