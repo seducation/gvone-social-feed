@@ -77,4 +77,4 @@
 - [x] Add a Discord-inspired community navigation view that filters the article stream to the selected source category
 - [x] Add source-category filtering regression coverage for the community navigation
 - [x] Add narrow-screen regression coverage for horizontal source-tab accessibility and selection
-- [ ] Push the current Signalflow project source to https://github.com/seducation/gvone-social-feed.git
+- [x] Push the current Signalflow project source to https://github.com/seducation/gvone-social-feed.git
