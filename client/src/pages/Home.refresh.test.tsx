@@ -236,6 +236,19 @@ describe("dashboard reload refresh controls", () => {
     article.videoMimeType = originalMimeType;
   });
 
+  it("compacts the sticky source bar after the reader scrolls down the feed", async () => {
+    render(<Home />);
+    const sourceBar = screen.getByLabelText("Source category tabs").closest("[data-source-bar]") as HTMLElement;
+
+    expect(sourceBar.dataset.compact).toBe("false");
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 128 });
+    fireEvent.scroll(window);
+
+    await waitFor(() => expect(sourceBar.dataset.compact).toBe("true"));
+    expect(sourceBar.className).toContain("py-1.5");
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+  });
+
   it("keeps the source tabs horizontally scrollable and selectable on a narrow screen", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
     render(<Home />);

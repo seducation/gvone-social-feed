@@ -112,3 +112,4 @@
 - [x] Add an embedded YouTube Shorts regression for stable full-height tiles and off-screen pause messaging
 - [x] Exercise the Shorts IntersectionObserver path in a browser-like test harness
 - [x] Assert at component level that an off-screen embedded YouTube Short dispatches the pause helper
+- [x] Make the horizontal source-navigation bar compact and dynamically reduce its visual footprint while scrolling

@@ -62,6 +62,7 @@ export default function Home() {
   const [showAdd, setShowAdd] = useState(false);
   const [showShorts, setShowShorts] = useState(false);
   const [activeShortId, setActiveShortId] = useState<number | null>(null);
+  const [isSourceBarCompact, setIsSourceBarCompact] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [showAssign, setShowAssign] = useState<number | null>(null);
   const [url, setUrl] = useState("");
@@ -156,6 +157,13 @@ export default function Home() {
   }, [auth.isAuthenticated, dashboard.isLoading, didRefreshOnLoad, feeds.length, refreshAllFeeds]);
 
   useEffect(() => {
+    const syncSourceBarDensity = () => setIsSourceBarCompact(window.scrollY > 88);
+    syncSourceBarDensity();
+    window.addEventListener("scroll", syncSourceBarDensity, { passive: true });
+    return () => window.removeEventListener("scroll", syncSourceBarDensity);
+  }, []);
+
+  useEffect(() => {
     if (!showShorts || !videoArticles.length) {
       setActiveShortId(null);
       return;
@@ -204,16 +212,16 @@ export default function Home() {
       <div className="ml-auto flex items-center gap-2"><button type="button" onClick={() => setShowShorts(true)} aria-label="Open Shorts" className="inline-flex items-center gap-2 rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#424956] transition hover:border-[#635bff] hover:text-[#635bff]"><Video className="h-4 w-4" /><span className="hidden sm:inline">Shorts</span><span className="rounded-full bg-[#f1f0ff] px-1.5 py-0.5 text-[10px] text-[#635bff]">{videoArticles.length}</span></button><button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-[#635bff] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_7px_18px_rgba(99,91,255,.2)] transition hover:-translate-y-0.5"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add feed</span></button><button onClick={() => auth.logout()} aria-label="Sign out" className="grid h-10 w-10 place-items-center rounded-full border border-[#e1e4ea] bg-white text-[#727b89] transition hover:text-[#14161a]"><LogOut className="h-4 w-4" /></button></div>
     </header>
 
-    <section className="sticky top-[76px] z-20 border-b border-[#e6e8ed] bg-[#f7f8fa]/95 px-4 py-3 backdrop-blur-xl sm:px-8">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Source category tabs">
+    <section data-source-bar data-compact={isSourceBarCompact} className={`sticky top-[76px] z-20 border-b border-[#e6e8ed] bg-[#f7f8fa]/95 px-4 backdrop-blur-xl transition-[padding] duration-200 ease-out sm:px-8 ${isSourceBarCompact ? "py-1.5" : "py-2.5"}`}>
+      <div className="mx-auto flex max-w-[1440px] items-center gap-2 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Source category tabs">
         {sourceChannels.map((channel) => {
           const selected = !activeGroup && activeCategory === channel.key;
-          return <button key={channel.key} type="button" onClick={() => selectCategory(channel.key)} aria-label={`Show ${channel.label}`} aria-pressed={selected} className={`group flex min-w-[86px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition ${selected ? "bg-[#14161a] text-white shadow-[0_10px_20px_rgba(24,22,32,.16)]" : "text-[#657080] hover:bg-white"}`}>
-            <span className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-white/12 text-white" : channelTint(channel.kind)}`}><ChannelIcon kind={channel.kind} className="h-4 w-4" /></span>
-            <span className="max-w-[82px] truncate text-[11px] font-semibold">{channel.shortLabel}</span><span className={`text-[10px] ${selected ? "text-white/55" : "text-[#a0a8b5]"}`}>{channel.feedIds.length} source{channel.feedIds.length === 1 ? "" : "s"}</span>
+          return <button key={channel.key} type="button" onClick={() => selectCategory(channel.key)} aria-label={`Show ${channel.label}`} aria-pressed={selected} className={`group flex shrink-0 items-center transition ${isSourceBarCompact ? "min-w-[72px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"} ${selected ? "bg-[#14161a] text-white shadow-[0_8px_18px_rgba(24,22,32,.14)]" : "text-[#657080] hover:bg-white"}`}>
+            <span className={`grid place-items-center ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"} ${selected ? "bg-white/12 text-white" : channelTint(channel.kind)}`}><ChannelIcon kind={channel.kind} className="h-4 w-4" /></span>
+            <span className={`${isSourceBarCompact ? "max-w-[104px] text-xs" : "max-w-[78px] text-[11px]"} truncate font-semibold`}>{channel.shortLabel}</span>{!isSourceBarCompact && <span className={`text-[10px] ${selected ? "text-white/55" : "text-[#a0a8b5]"}`}>{channel.feedIds.length} source{channel.feedIds.length === 1 ? "" : "s"}</span>}
           </button>;
         })}
-        <button type="button" onClick={() => setShowAdd(true)} aria-label="Add a source" className="flex min-w-[86px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2 text-[#697281] transition hover:bg-white"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[#635bff] shadow-sm"><Plus className="h-4 w-4" /></span><span className="text-[11px] font-semibold">Add source</span><span className="text-[10px] text-[#a0a8b5]">New channel</span></button>
+        <button type="button" onClick={() => setShowAdd(true)} aria-label="Add a source" className={`flex shrink-0 items-center text-[#697281] transition hover:bg-white ${isSourceBarCompact ? "min-w-[88px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"}`}><span className={`grid place-items-center bg-white text-[#635bff] shadow-sm ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"}`}><Plus className="h-4 w-4" /></span><span className={`${isSourceBarCompact ? "text-xs" : "text-[11px]"} font-semibold`}>Add source</span>{!isSourceBarCompact && <span className="text-[10px] text-[#a0a8b5]">New channel</span>}</button>
       </div>
     </section>
 
