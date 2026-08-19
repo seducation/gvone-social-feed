@@ -1,10 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-
-vi.mock("./feedParser", () => ({
-  parseFeed: vi.fn().mockRejectedValue(new Error("Feed returned HTTP 503: Service Unavailable")),
-}));
 
 function createContext(): TrpcContext {
   return {
@@ -14,8 +10,11 @@ function createContext(): TrpcContext {
   };
 }
 
-describe("feed.add", () => {
-  it("returns a normalized tRPC error when the upstream feed is unavailable", async () => {
+describe("feed.add integration error handling", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("normalizes a real plain-text 503 response into a readable tRPC error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Service Unavailable", { status: 503, headers: { "content-type": "text/plain" } })));
     const caller = appRouter.createCaller(createContext());
     await expect(caller.feed.add({ url: "https://example.com/outage.xml" })).rejects.toThrow("The feed service is temporarily unavailable. Please try again in a moment.");
   });

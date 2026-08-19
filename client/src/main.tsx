@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
+import { normalizeApiResponse } from "./lib/safeApiFetch";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -62,11 +63,12 @@ const trpcClient = trpc.createClient({
         }
         return {};
       },
-      fetch(input, init) {
-        return globalThis.fetch(input, {
+      async fetch(input, init) {
+        const response = await globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
         });
+        return normalizeApiResponse(response);
       },
     }),
   ],

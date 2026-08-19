@@ -48,6 +48,11 @@ describe("parseFeed", () => {
     expect(result.title).toBe("Anchor feed");
   });
 
+  it("normalizes a plain-text upstream service outage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Service Unavailable", { status: 503 })));
+    await expect(parseFeed("https://example.com/outage.xml")).rejects.toThrow("Feed returned HTTP 503");
+  });
+
   it("explains when a non-YouTube feed blocks server access", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("login required", { status: 403 })));
     await expect(parseFeed("https://example.com/private.xml")).rejects.toThrow("private or blocks server access");

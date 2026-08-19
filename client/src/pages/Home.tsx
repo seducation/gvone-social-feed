@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { feedErrorMessage } from "@/lib/feedError";
 import { startLogin } from "@/const";
 import { toast } from "sonner";
 import { ArrowUpRight, Bookmark, Check, ChevronDown, Compass, Hash, Layers3, Loader2, LogOut, MoreHorizontal, Plus, RefreshCw, Rss, Search, Settings2, SlidersHorizontal, Sparkles, Trash2, Video, X } from "lucide-react";
@@ -23,7 +24,7 @@ export default function Home() {
   const groups = dashboard.data?.groups ?? [];
   const groupArticles = trpc.group.articles.useQuery({ id: activeGroup ?? 0 }, { enabled: Boolean(activeGroup) });
   const allArticles = trpc.feed.articles.useQuery(undefined, { enabled: auth.isAuthenticated });
-  const addFeed = trpc.feed.add.useMutation({ onSuccess: () => { toast.success("Feed added to your library"); setShowAdd(false); setUrl(""); setCustomTitle(""); utils.dashboard.invalidate(); }, onError: (error) => toast.error(error.message || "Could not add that feed") });
+  const addFeed = trpc.feed.add.useMutation({ onSuccess: () => { toast.success("Feed added to your library"); setShowAdd(false); setUrl(""); setCustomTitle(""); utils.dashboard.invalidate(); }, onError: (error) => toast.error(feedErrorMessage(error)) });
   const createGroup = trpc.group.create.useMutation({ onSuccess: () => { toast.success("Collection created"); setGroupName(""); setShowGroups(false); utils.dashboard.invalidate(); }, onError: (error) => toast.error(error.message) });
   const refreshGroup = trpc.group.refresh.useMutation({ onSuccess: (data) => { toast.success(`Refreshed ${data.refreshed} feeds`); groupArticles.refetch(); }, onError: (error) => toast.error(error.message) });
   const refreshFeed = trpc.feed.refresh.useMutation({ onSuccess: () => { toast.success("Feed refreshed"); utils.dashboard.invalidate(); if (activeGroup) groupArticles.refetch(); }, onError: (error) => toast.error(error.message) });

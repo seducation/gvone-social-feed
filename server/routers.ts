@@ -9,6 +9,12 @@ import { feedGroups, rssFeeds, rssGroups } from "../drizzle/schema";
 import { assignFeed, getDb, getFeed, getGroup, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, unassignFeed } from "./db";
 import { parseFeed } from "./feedParser";
 
+function normalizeFeedImportError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/service unavailable|bad gateway|gateway timeout|HTTP 50[234]/i.test(message)) return "The feed service is temporarily unavailable. Please try again in a moment.";
+  return message || "Could not import that feed";
+}
+
 async function refreshOwnedFeed(userId: number, feedId: number) {
   const feed = await getFeed(userId, feedId);
   if (!feed) throw new TRPCError({ code: "NOT_FOUND", message: "Feed not found" });
@@ -28,7 +34,8 @@ export const appRouter = router({
     list: protectedProcedure.query(({ ctx }) => listFeeds(ctx.user.id)),
     articles: protectedProcedure.query(async ({ ctx }) => listArticlesForFeeds((await listFeeds(ctx.user.id)).map((feed) => feed.id))),
     add: protectedProcedure.input(z.object({ url: z.string().url(), customTitle: z.string().trim().max(255).optional() })).mutation(async ({ ctx, input }) => {
-      const parsed = await parseFeed(input.url);
+      let parsed;
+      try { parsed = await parseFeed(input.url); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: normalizeFeedImportError(error) }); }
       const db = await getDb(); if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const inserted = await db.insert(rssFeeds).values({ userId: ctx.user.id, url: input.url, customTitle: input.customTitle || null, title: parsed.title, description: parsed.description, faviconUrl: parsed.faviconUrl, lastFetchedAt: new Date() });
       const feedId = Number(inserted[0].insertId);

@@ -45,3 +45,13 @@
 - [x] Improve the no-feed message with direct guidance to paste an XML feed URL
 - [x] Update ordinary web-page errors to explicitly request a direct RSS/Atom XML URL and show common feed path examples
 - [x] Add a regression test for the improved no-feed message
+- [x] Normalize upstream Service Unavailable and other non-JSON responses into readable feed import errors
+- [x] Add regression coverage for non-JSON upstream responses and verify the add-feed mutation error path
+- [x] Add mutation-level feed.add coverage for a plain-text 503 upstream response
+- [x] Harden client/API error handling when the app or proxy itself returns non-JSON 503 content
+- [x] Verify the complete Service Unavailable add-feed flow and document the handled error message
+- [x] Simulate a plain-text 503 response through the feed.add mutation path and assert the final readable tRPC error
+- [x] Verify the add-feed UI flow shows the normalized outage message instead of a JSON parse exception
+- [x] Document the normalized Service Unavailable message and its API/toast behavior in the README
+- [x] Add an integration-style feed.add test using an actual plain-text 503 fetch response
+- [x] Add a client error-message mapping test for the feed-add toast path and document the verification scope

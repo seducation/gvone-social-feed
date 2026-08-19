@@ -77,9 +77,10 @@ function discoverFeedCandidates(html: string, pageUrl: string): string[] {
 }
 
 async function tryDiscoveredFeeds(html: string, pageUrl: string, originalUrl: string): Promise<ParsedFeed | null> {
-  for (const candidate of discoverFeedCandidates(html, pageUrl)) {
+  const candidates = discoverFeedCandidates(html, pageUrl).slice(0, 5);
+  for (const candidate of candidates) {
     if (candidate === originalUrl || candidate === pageUrl) continue;
-    try { return await parseFeed(candidate); } catch { /* try the next likely feed endpoint */ }
+    try { return await parseFeed(candidate, 5000); } catch { /* try the next likely feed endpoint */ }
   }
   return null;
 }
@@ -212,13 +213,13 @@ async function resolveKnownPageToFeed(url: string): Promise<string> {
   return url;
 }
 
-async function fetchFeedResponse(url: string, redirects = 0): Promise<{ response: Response; finalUrl: string }> {
+async function fetchFeedResponse(url: string, redirects = 0, timeoutMs = 15000): Promise<{ response: Response; finalUrl: string }> {
   if (redirects > 5) throw new Error("Feed redirected too many times");
-  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
+  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "RSS Group Feed/1.0" } });
   if (response.status >= 300 && response.status < 400) {
     const location = response.headers.get("location");
     if (!location) throw new Error(`Feed returned HTTP ${response.status} without a redirect location`);
-    return fetchFeedResponse(absoluteUrl(location, url), redirects + 1);
+    return fetchFeedResponse(absoluteUrl(location, url), redirects + 1, timeoutMs);
   }
   return { response, finalUrl: url };
 }
@@ -229,9 +230,9 @@ function facebookFeedError(url: string): string {
   return "Facebook page URLs do not provide a public RSS/Atom feed. Add the page’s direct RSS feed URL or its website’s feed instead.";
 }
 
-export async function parseFeed(url: string): Promise<ParsedFeed> {
+export async function parseFeed(url: string, timeoutMs = 15000): Promise<ParsedFeed> {
   const resolvedUrl = await resolveKnownPageToFeed(url);
-  const { response, finalUrl } = await fetchFeedResponse(resolvedUrl);
+  const { response, finalUrl } = await fetchFeedResponse(resolvedUrl, 0, timeoutMs);
   if (!response.ok) {
     if (response.status === 404 && isYouTubeChannelPage(url)) return parseYouTubeChannelPage(url);
     if (isFacebookPage(url)) throw new Error(facebookFeedError(url));
