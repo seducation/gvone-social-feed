@@ -30,3 +30,11 @@
 - [x] Add a targeted NASA YouTube channel regression test and verify feed metadata/articles
 - [x] Fix YouTube channel feed resolution when the generated videos.xml endpoint returns HTTP 404
 - [x] Add regression coverage for YouTube 404 fallback behavior
+- [x] Reproduce a representative non-YouTube RSS/Atom URL failure
+- [x] Improve generic feed fetching/parsing for compression, namespaces, content types, and access restrictions
+- [x] Add regression coverage for generic feed failures and clear user-facing errors
+- [x] Detect Facebook page URLs that do not expose RSS/Atom and return a precise unsupported-source message
+- [x] Add regression coverage for Facebook page responses without a public feed link
+- [ ] Reproduce a real failing non-YouTube RSS/Atom feed response and cover that exact behavior
+- [x] Add explicit handling for access-restricted non-public feed sources
+- [x] Add regression coverage for non-YouTube malformed or access-restricted responses beyond Facebook

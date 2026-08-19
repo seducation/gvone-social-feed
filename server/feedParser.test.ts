@@ -27,6 +27,21 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.title).toBe("Namespaced story");
   });
 
+  it("explains when a non-YouTube feed blocks server access", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("login required", { status: 403 })));
+    await expect(parseFeed("https://example.com/private.xml")).rejects.toThrow("private or blocks server access");
+  });
+
+  it("explains that Facebook pages without feed links are unsupported", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<html><head><title>NASA - Facebook</title></head><body>NASA posts and followers</body></html>`, { status: 200, headers: { "content-type": "text/html" } })));
+    await expect(parseFeed("https://www.facebook.com/NASA/")).rejects.toThrow("Facebook page URLs do not provide a public RSS/Atom feed");
+  });
+
+  it("reports malformed non-YouTube XML clearly", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("this is not xml", { status: 200, headers: { "content-type": "application/xml" } })));
+    await expect(parseFeed("https://example.com/broken.xml")).rejects.toThrow("not a recognized RSS or Atom feed");
+  });
+
   it("falls back to channel-page videos when YouTube RSS returns 404", async () => {
     const page = `<title>NASA - YouTube</title><script>var ytInitialData = {"videoRenderer":{"videoId":"abc123","title":{"runs":[{"text":"NASA upload"}]},"thumbnail":{"thumbnails":[{"url":"https://i.ytimg.com/vi/abc123/hqdefault.jpg"}]}}};</script>`;
     vi.stubGlobal("fetch", vi.fn()

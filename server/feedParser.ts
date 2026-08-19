@@ -115,6 +115,11 @@ function isYouTubeChannelPage(url: string): boolean {
   return /(^|\.)youtube\.com$/i.test(page.hostname) && /^\/(?:@|channel\/|c\/|user\/)/i.test(page.pathname);
 }
 
+function isFacebookPage(url: string): boolean {
+  const page = new URL(url);
+  return /(^|\.)facebook\.com$/i.test(page.hostname) && /^\/(?:pages\/|profile\.php|[A-Za-z0-9._-]+)\/?$/i.test(page.pathname);
+}
+
 function extractJsonAssignment(html: string, marker: string): unknown {
   const markerIndex = html.indexOf(marker);
   if (markerIndex < 0) return null;
@@ -196,14 +201,19 @@ async function fetchFeedResponse(url: string, redirects = 0): Promise<{ response
   return { response, finalUrl: url };
 }
 
+const FACEBOOK_FEED_ERROR = "Facebook page URLs do not provide a public RSS/Atom feed. Add the page’s direct RSS feed URL or its website’s feed instead.";
+
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   const resolvedUrl = await resolveKnownPageToFeed(url);
   const { response, finalUrl } = await fetchFeedResponse(resolvedUrl);
   if (!response.ok) {
     if (response.status === 404 && isYouTubeChannelPage(url)) return parseYouTubeChannelPage(url);
+    if (isFacebookPage(url)) throw new Error(FACEBOOK_FEED_ERROR);
+    if (response.status === 401 || response.status === 403) throw new Error("This feed is private or blocks server access. Use a public RSS/Atom URL that does not require login.");
     throw new Error(`Feed returned HTTP ${response.status}`);
   }
   const xml = await response.text();
+  if (isFacebookPage(url)) throw new Error(FACEBOOK_FEED_ERROR);
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
   let parsed: Record<string, any>;
   try {

@@ -5,3 +5,7 @@ The provided NASA channel page `https://m.youtube.com/@NASA` resolves to the can
 Current web research indicates that YouTube channel RSS endpoints can return intermittent or broad 404 failures, and the legacy endpoint is not reliable as the sole integration path. Relevant sources include [Google AI Developers Community](https://discuss.ai.google.dev/t/youtube-rss-feed-endpoint-returns-404-errors/113379), [n8n Community](https://community.n8n.io/t/youtube-rss-feed-endpoint-returns-404-errors/241692?tl=en), [RSS-Bridge issue #2113](https://github.com/RSS-Bridge/rss-bridge/issues/2113), and the [YouTube Data API channels documentation](https://developers.google.com/youtube/v3/docs/channels).
 
 The implementation should therefore retain the legacy feed attempt, detect a 404 specifically for YouTube, and fall back to parsing the public channel page or a supported uploads source rather than treating the channel URL as a normal RSS feed.
+
+## Facebook page inspection
+
+The provided `https://www.facebook.com/NASA/` URL loads a Facebook page with login prompts, follower information, posts, and links to `nasa.gov`, but it does not expose a public RSS or Atom feed link. The generic importer should identify Facebook page URLs and explain that a direct public RSS/Atom URL is required; importing Facebook posts would require a separate authenticated Facebook/Meta integration rather than RSS parsing.
