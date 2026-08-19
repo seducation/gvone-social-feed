@@ -27,6 +27,27 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.title).toBe("Namespaced story");
   });
 
+  it("discovers a feed from a common endpoint path", async () => {
+    const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>Common path feed</title><item><title>Story</title><link>https://example.com/story</link></item></channel></rss>`;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<html><head><title>Example</title></head><body>News</body></html>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response("not found", { status: 404 }))
+      .mockResolvedValueOnce(new Response(rss, { status: 200, headers: { "content-type": "application/rss+xml" } }))
+      .mockResolvedValueOnce(new Response(`<html><link rel="icon" href="/favicon.ico"></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/news");
+    expect(result.title).toBe("Common path feed");
+  });
+
+  it("discovers a feed from an RSS-labeled anchor", async () => {
+    const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>Anchor feed</title><item><title>Story</title><link>https://example.com/story</link></item></channel></rss>`;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<html><body><a href="/custom-feed">RSS feed</a></body></html>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(rss, { status: 200, headers: { "content-type": "application/rss+xml" } }))
+      .mockResolvedValueOnce(new Response(`<html><link rel="icon" href="/favicon.ico"></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/news");
+    expect(result.title).toBe("Anchor feed");
+  });
+
   it("explains when a non-YouTube feed blocks server access", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("login required", { status: 403 })));
     await expect(parseFeed("https://example.com/private.xml")).rejects.toThrow("private or blocks server access");
@@ -96,7 +117,7 @@ describe("parseFeed", () => {
 
   it("explains when a URL returns an ordinary web page without a feed link", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(`<!doctype html><html><head><title>Website</title></head><body>Welcome</body></html>`, { status: 200 })));
-    await expect(parseFeed("https://example.com/website")).rejects.toThrow("web page, not the RSS/Atom feed");
+    await expect(parseFeed("https://example.com/website")).rejects.toThrow("Paste the direct RSS/Atom XML URL, or try a common path such as /feed/, /rss.xml, or /atom.xml.");
   });
 
   it("supports prefixed Atom feed roots", async () => {

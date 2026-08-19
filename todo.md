@@ -40,3 +40,8 @@
 - [x] Add regression coverage for non-YouTube malformed or access-restricted responses beyond Facebook
 - [x] Add actionable guidance for Facebook page URLs with the official NASA website RSS alternative
 - [x] Verify the suggested NASA feed URL and cover the guidance in a regression test
+- [x] Broaden discovery for common feed endpoint paths and alternate metadata formats
+- [x] Add regression coverage for websites whose feed links are not exposed in standard link tags
+- [x] Improve the no-feed message with direct guidance to paste an XML feed URL
+- [x] Update ordinary web-page errors to explicitly request a direct RSS/Atom XML URL and show common feed path examples
+- [x] Add a regression test for the improved no-feed message

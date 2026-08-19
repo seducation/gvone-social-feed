@@ -51,13 +51,35 @@ function stripMarkup(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function discoverLinkedFeed(html: string, pageUrl: string): string | null {
+function discoverFeedCandidates(html: string, pageUrl: string): string[] {
+  const candidates: string[] = [];
+  const add = (href: string | undefined) => {
+    if (!href) return;
+    const absolute = absoluteUrl(href, pageUrl);
+    if (!candidates.includes(absolute)) candidates.push(absolute);
+  };
   const links = Array.from(html.matchAll(/<link\b[^>]*>/gi), (match) => match[0]);
   for (const link of links) {
     const rel = link.match(/\brel=["']([^"']+)["']/i)?.[1].toLowerCase() ?? "";
     const type = link.match(/\btype=["']([^"']+)["']/i)?.[1].toLowerCase() ?? "";
     const href = link.match(/\bhref=["']([^"']+)["']/i)?.[1];
-    if (href && (rel.includes("alternate") || type.includes("rss") || type.includes("atom") || type.includes("xml")) && (type.includes("rss") || type.includes("atom") || type.includes("xml") || /feed|rss|atom/i.test(href))) return absoluteUrl(href, pageUrl);
+    if (href && (rel.includes("alternate") || type.includes("rss") || type.includes("atom") || type.includes("xml")) && (type.includes("rss") || type.includes("atom") || type.includes("xml") || /feed|rss|atom|\.xml(?:$|[?#])/i.test(href))) add(href);
+  }
+  const anchors = Array.from(html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi));
+  for (const anchor of anchors) {
+    const href = anchor[1];
+    const label = stripMarkup(anchor[2] ?? "");
+    if (/feed|rss|atom|syndicat|xml/i.test(`${href} ${label}`)) add(href);
+  }
+  const base = new URL(pageUrl);
+  for (const path of ["/feed/", "/feed.xml", "/rss/", "/rss.xml", "/atom.xml", "/index.xml", "/feeds/posts/default", "/?output=1"]) add(new URL(path, base.origin).toString());
+  return candidates;
+}
+
+async function tryDiscoveredFeeds(html: string, pageUrl: string, originalUrl: string): Promise<ParsedFeed | null> {
+  for (const candidate of discoverFeedCandidates(html, pageUrl)) {
+    if (candidate === originalUrl || candidate === pageUrl) continue;
+    try { return await parseFeed(candidate); } catch { /* try the next likely feed endpoint */ }
   }
   return null;
 }
@@ -223,8 +245,8 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   try {
     parsed = parser.parse(xml) as Record<string, any>;
   } catch (error) {
-    const linkedFeed = discoverLinkedFeed(xml, finalUrl);
-    if (linkedFeed && linkedFeed !== url) return parseFeed(linkedFeed);
+    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url);
+    if (discoveredFeed) return discoveredFeed;
     throw new Error(`Could not parse the feed XML: ${error instanceof Error ? error.message : String(error)}`);
   }
   const rootKey = Object.keys(parsed).find((key) => ["rss", "rdf", "rdf:rdf", "feed"].includes(key.toLowerCase()) || ["rss", "rdf", "feed"].includes(localName(key)));
@@ -235,9 +257,9 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   const hasRssShape = Boolean(channel || childByLocalName(root, "item"));
   const hasAtomShape = Boolean(atom && childByLocalName(atom, "entry"));
   if (!hasRssShape && !hasAtomShape) {
-    const linkedFeed = discoverLinkedFeed(xml, finalUrl);
-    if (linkedFeed && linkedFeed !== url) return parseFeed(linkedFeed);
-    if (/^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml)) throw new Error("This URL returned a web page, not the RSS/Atom feed. Paste the feed URL or use a page with an RSS link.");
+    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url);
+    if (discoveredFeed) return discoveredFeed;
+    if (/^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml)) throw new Error("This URL returned a web page, not an RSS/Atom feed. Paste the direct RSS/Atom XML URL, or try a common path such as /feed/, /rss.xml, or /atom.xml.");
     throw new Error("The URL returned XML, but it was not a recognized RSS or Atom feed");
   }
   const base = new URL(finalUrl);
