@@ -201,19 +201,23 @@ async function fetchFeedResponse(url: string, redirects = 0): Promise<{ response
   return { response, finalUrl: url };
 }
 
-const FACEBOOK_FEED_ERROR = "Facebook page URLs do not provide a public RSS/Atom feed. Add the page’s direct RSS feed URL or its website’s feed instead.";
+function facebookFeedError(url: string): string {
+  const page = new URL(url);
+  if (/^\/NASA\/?$/i.test(page.pathname)) return "Facebook page URLs do not provide a public RSS/Atom feed. For NASA updates, add the official feed instead: https://www.nasa.gov/feed/";
+  return "Facebook page URLs do not provide a public RSS/Atom feed. Add the page’s direct RSS feed URL or its website’s feed instead.";
+}
 
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   const resolvedUrl = await resolveKnownPageToFeed(url);
   const { response, finalUrl } = await fetchFeedResponse(resolvedUrl);
   if (!response.ok) {
     if (response.status === 404 && isYouTubeChannelPage(url)) return parseYouTubeChannelPage(url);
-    if (isFacebookPage(url)) throw new Error(FACEBOOK_FEED_ERROR);
+    if (isFacebookPage(url)) throw new Error(facebookFeedError(url));
     if (response.status === 401 || response.status === 403) throw new Error("This feed is private or blocks server access. Use a public RSS/Atom URL that does not require login.");
     throw new Error(`Feed returned HTTP ${response.status}`);
   }
   const xml = await response.text();
-  if (isFacebookPage(url)) throw new Error(FACEBOOK_FEED_ERROR);
+  if (isFacebookPage(url)) throw new Error(facebookFeedError(url));
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
   let parsed: Record<string, any>;
   try {

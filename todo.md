@@ -38,3 +38,5 @@
 - [x] Reproduce a representative non-YouTube source failure: Facebook page URL without a public RSS/Atom feed
 - [x] Add explicit handling for access-restricted non-public feed sources
 - [x] Add regression coverage for non-YouTube malformed or access-restricted responses beyond Facebook
+- [x] Add actionable guidance for Facebook page URLs with the official NASA website RSS alternative
+- [x] Verify the suggested NASA feed URL and cover the guidance in a regression test

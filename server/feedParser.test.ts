@@ -34,7 +34,7 @@ describe("parseFeed", () => {
 
   it("explains that Facebook pages without feed links are unsupported", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<html><head><title>NASA - Facebook</title></head><body>NASA posts and followers</body></html>`, { status: 200, headers: { "content-type": "text/html" } })));
-    await expect(parseFeed("https://www.facebook.com/NASA/")).rejects.toThrow("Facebook page URLs do not provide a public RSS/Atom feed");
+    await expect(parseFeed("https://www.facebook.com/NASA/")).rejects.toThrow("For NASA updates, add the official feed instead: https://www.nasa.gov/feed/");
   });
 
   it("reports malformed non-YouTube XML clearly", async () => {
