@@ -21,7 +21,9 @@ async function parseWithTransientRetry(url: string, retryDelayMs: number) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!/HTTP (?:429|502|503|504)/i.test(message)) throw error;
-    if (retryDelayMs > 0) await wait(retryDelayMs);
+    const redditCooldown = /(^|\.)reddit\.com/i.test(new URL(url).hostname) ? 12_000 : retryDelayMs;
+    const delay = retryDelayMs > 0 ? Math.max(retryDelayMs, redditCooldown) : 0;
+    if (delay > 0) await wait(delay);
     return parseFeed(url);
   }
 }

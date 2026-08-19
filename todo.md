@@ -103,3 +103,4 @@
 - [x] Add regression coverage for retrying a rate-limited source without delaying the remaining refresh batch
 - [x] Retry a transient upstream HTTP 502, 503, or 504 once during scheduled RSS refreshes
 - [ ] Verify a published refresh completes all saved sources after transient upstream recovery
+- [x] Use a Reddit-specific bounded retry delay that gives upstream rate limits time to clear
