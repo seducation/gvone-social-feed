@@ -215,6 +215,30 @@ describe("dashboard reload refresh controls", () => {
     mocks.allArticles.pop();
   });
 
+  it("defers distant Shorts media so the full video feed does not load at once", async () => {
+    mocks.allArticles.push(
+      { id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" },
+      { id: 5, feedId: 7, title: "NASA distant clip", link: "https://example.com/distant-video", description: null, publishedAt: new Date("2026-08-17T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/distant.mp4" },
+    );
+    installShortsObserver();
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    await waitFor(() => expect(shortObserverCallback).toBeTypeOf("function"));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const cards = Array.from(dialog.querySelectorAll<HTMLElement>("[data-short-id]"));
+
+    await waitFor(() => expect(dialog.querySelectorAll("video")).toHaveLength(2));
+    expect(cards[2].dataset.shortMediaState).toBe("deferred");
+    expect(within(cards[2]).getByLabelText("Video queued for loading")).toBeTruthy();
+    act(() => shortObserverCallback?.([{ target: cards[1], isIntersecting: true, intersectionRatio: 0.7 } as unknown as IntersectionObserverEntry], {} as IntersectionObserver));
+
+    await waitFor(() => expect(cards[2].dataset.shortMediaState).toBe("loaded"));
+    expect(dialog.querySelectorAll("video")).toHaveLength(3);
+    mocks.allArticles.pop();
+    mocks.allArticles.pop();
+  });
+
   it("keeps embedded YouTube Shorts in a stable tile and sends an off-screen pause command", async () => {
     const first = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
     const originalUrl = first.videoUrl;

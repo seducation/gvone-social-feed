@@ -115,3 +115,4 @@
 - [x] Make the horizontal source-navigation bar compact and dynamically reduce its visual footprint while scrolling
 - [x] Preserve the reader’s Shorts sound preference across visible native video items
 - [x] Improve active-Short playback responsiveness and add regressions for sound continuity
+- [x] Reduce Shorts media startup delay by loading only the active and nearby videos at high priority
