@@ -47,4 +47,16 @@ describe("refreshFeedBatch", () => {
     expect(result).toEqual({ attempted: 2, refreshed: 2, failed: 0, failures: [] });
     expect(parseFeed).toHaveBeenCalledTimes(3);
   });
+
+  it("retries one transient HTTP 503 before recording a source as failed", async () => {
+    vi.mocked(parseFeed).mockReset();
+    vi.mocked(saveParsedFeed).mockReset();
+    vi.mocked(parseFeed)
+      .mockRejectedValueOnce(new Error("Feed returned HTTP 503"))
+      .mockResolvedValueOnce({ title: "Recovered service", description: null, faviconUrl: "", articles: [] } as never);
+    vi.mocked(saveParsedFeed).mockResolvedValue(undefined as never);
+
+    await expect(refreshFeedBatch([{ id: 3, userId: 42, url: "https://example.com/recovering.xml" }], 1, 0)).resolves.toEqual({ attempted: 1, refreshed: 1, failed: 0, failures: [] });
+    expect(parseFeed).toHaveBeenCalledTimes(2);
+  });
 });

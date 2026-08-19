@@ -101,3 +101,5 @@
 - [ ] Verify the published refresh job completes for every saved source after repairing failed inputs
 - [x] Add a bounded retry and request profile for transient Reddit RSS rate limits
 - [x] Add regression coverage for retrying a rate-limited source without delaying the remaining refresh batch
+- [x] Retry a transient upstream HTTP 502, 503, or 504 once during scheduled RSS refreshes
+- [ ] Verify a published refresh completes all saved sources after transient upstream recovery
