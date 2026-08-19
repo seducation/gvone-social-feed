@@ -133,3 +133,5 @@
 - [x] Verify a created category group appears in the source manager and opens its combined reader feed with merged selected-source articles
 - [x] Move Manage and Shorts from the top header to the right side of the horizontal source-navigation bar
 - [x] Order the source-bar actions with Shorts on the left and Manage on the far right
+- [x] Place Shorts immediately beside All in the source tab strip while keeping Manage at the far right
+- [x] Match Shorts to source-tab sizing and make it scroll with the source tabs

@@ -143,13 +143,15 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.getByText(/Stories from your saved CNN feeds/)).toBeTruthy();
   });
 
-  it("places Manage and Shorts at the right end of the horizontal source bar", () => {
+  it("places Shorts after All in the scrolling tabs and keeps Manage at the source bar’s far right", () => {
     render(<Home />);
 
     const sourceBar = document.querySelector("[data-source-bar]");
     expect(sourceBar).toBeTruthy();
+    const all = within(sourceBar as HTMLElement).getByRole("button", { name: /Show All/ });
     const shorts = within(sourceBar as HTMLElement).getByRole("button", { name: "Open Shorts" });
     const manage = within(sourceBar as HTMLElement).getByRole("button", { name: "Manage RSS sources" });
+    expect(all.compareDocumentPosition(shorts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(shorts.compareDocumentPosition(manage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
