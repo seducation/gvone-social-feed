@@ -144,3 +144,11 @@
 - [x] Give Shorts true source-tab semantics and active-state parity with regression coverage
 - [x] Show the Shorts label only while the source bar is expanded, then use icon-only Shorts when it contracts
 - [x] Push the validated Signalflow source history to GitHub using the renewed repository credential
+- [x] Prevent YouTube player buttons from overlapping surrounding controls in content and All feed cards
+- [x] Keep Shorts article titles clear of the embedded YouTube playback progress bar and slider
+- [x] Add component-level layout regressions for protected YouTube control areas in feed cards and Shorts
+- [x] Assert embedded YouTube feed cards use a stable 16:9 player surface instead of default iframe dimensions
+- [x] Assert embedded YouTube Shorts captions are offset above the player control rail
+- [x] Rename all user-facing Signalflow application branding to gvone
+- [x] Update the browser title and visible reader brand presentation to gvone
+- [x] Add or update regression coverage for the gvone brand label

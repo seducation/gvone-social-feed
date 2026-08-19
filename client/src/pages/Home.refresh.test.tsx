@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import React from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as shortsPlayback from "@/lib/shortsPlayback";
+
+const globalStyles = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
 
 Object.defineProperty(HTMLMediaElement.prototype, "play", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
 Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: vi.fn() });
@@ -140,6 +144,14 @@ describe("dashboard reload refresh controls", () => {
     await waitFor(() => expect(screen.getByText("NASA update")).toBeTruthy());
     expect(screen.queryByText("Reddit update")).toBeNull();
     expect(screen.getByText("Channel roll call")).toBeTruthy();
+  });
+
+  it("shows the gvone brand in the reader header and Shorts overlay", () => {
+    render(<Home />);
+
+    expect(screen.getByText("gvone")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    expect(screen.getByText("gvone shorts")).toBeTruthy();
   });
 
   it("creates a dedicated CNN domain channel rather than merging it into a generic website tab", async () => {
@@ -369,6 +381,45 @@ describe("dashboard reload refresh controls", () => {
     mocks.allArticles.pop();
     first.videoUrl = originalUrl;
     first.videoMimeType = originalMimeType;
+  });
+
+  it("renders an embedded YouTube feed card on a protected widescreen player surface", () => {
+    const article = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = article.videoUrl;
+    const originalMimeType = article.videoMimeType;
+    article.videoUrl = "https://www.youtube.com/embed/example";
+    article.videoMimeType = "text/html";
+
+    const { container } = render(<Home />);
+    const frame = container.querySelector<HTMLIFrameElement>('main article iframe[title="Embedded feed video"]');
+
+    expect(frame).toBeTruthy();
+    expect(frame?.className).toContain("w-full");
+    expect(globalStyles).toContain('main article iframe[title="Embedded feed video"]');
+    expect(globalStyles).toContain("aspect-ratio: 16 / 9;");
+    article.videoUrl = originalUrl;
+    article.videoMimeType = originalMimeType;
+  });
+
+  it("renders an embedded YouTube Shorts caption above the protected player control rail", () => {
+    const article = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = article.videoUrl;
+    const originalMimeType = article.videoMimeType;
+    article.videoUrl = "https://www.youtube.com/embed/example";
+    article.videoMimeType = "text/html";
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const caption = within(dialog).getByText("NASA update").closest("div");
+
+    expect(within(dialog).getByTitle("Embedded feed video")).toBeTruthy();
+    expect(caption?.className).toContain("absolute");
+    expect(caption?.className).toContain("bottom-0");
+    expect(globalStyles).toContain("article[data-short-id] > div > div:last-child");
+    expect(globalStyles).toContain("bottom: 5.25rem;");
+    article.videoUrl = originalUrl;
+    article.videoMimeType = originalMimeType;
   });
 
   it("remembers a YouTube player unmute action for the Shorts sound control", async () => {

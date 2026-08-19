@@ -10,3 +10,17 @@ button { cursor: pointer; }
 button:active { transform: scale(.98); }
 .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
 ::selection { background: #d9d7ff; color: #302ba1; }
+
+/* Keep the full 16:9 YouTube control surface inside reader cards rather than
+   collapsing an iframe to its browser-default height. */
+main article iframe[title="Embedded feed video"] {
+  display: block;
+  aspect-ratio: 16 / 9;
+}
+
+/* The embedded player owns its lower control rail. Captions sit above a
+   dedicated clearance zone so titles never cover YouTube's progress slider. */
+article[data-short-id] > div > div:last-child {
+  bottom: 5.25rem;
+  padding-bottom: 0.5rem;
+}
