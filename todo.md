@@ -17,4 +17,4 @@
 - [x] Detect embedded video URLs from article HTML and expose inline-playable media where safe
 - [x] Add ownership checks to feed-group assignment mutations before deletion or update
 - [x] Add tests for ownership isolation, group assignment/merge behavior, and refresh flows
-- [ ] Activate and document the 30-minute Heartbeat job after the site is deployed
+- [x] Activate and document the 30-minute Heartbeat job after the site is deployed
