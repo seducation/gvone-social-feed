@@ -63,6 +63,17 @@ describe("parseFeed", () => {
     await expect(parseFeed("https://www.facebook.com/NASA/")).rejects.toThrow("For NASA updates, add the official feed instead: https://www.nasa.gov/feed/");
   });
 
+  it("resolves the provided Reddit Technology page to its public Atom feed", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>technology</title><entry><id>t3_technology</id><title>Technology story</title><link href="https://www.reddit.com/r/technology/comments/example"/><updated>2026-08-19T08:00:00Z</updated><summary>Discussion</summary></entry></feed>`, { status: 200, headers: { "content-type": "application/atom+xml" } }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await parseFeed("https://www.reddit.com/r/technology/");
+    expect(result.title).toBe("technology");
+    expect(result.articles[0]?.title).toBe("Technology story");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://www.reddit.com/r/technology/.rss");
+  });
+
   it("reports malformed non-YouTube XML clearly", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("this is not xml", { status: 200, headers: { "content-type": "application/xml" } })));
     await expect(parseFeed("https://example.com/broken.xml")).rejects.toThrow("not a recognized RSS or Atom feed");
@@ -118,6 +129,13 @@ describe("parseFeed", () => {
     const result = await parseFeed("https://example.com/news");
     expect(result.title).toBe("Linked News");
     expect(result.articles[0]?.title).toBe("Linked story");
+  });
+
+  it("settles promptly when a website has no usable feed candidates", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("not found", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(parseFeed("https://example.com/no-feed", 1000)).rejects.toThrow("Feed returned HTTP 404");
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it("explains when a URL returns an ordinary web page without a feed link", async () => {

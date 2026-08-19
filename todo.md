@@ -55,3 +55,14 @@
 - [x] Document the normalized Service Unavailable message and its API/toast behavior in the README
 - [x] Add an integration-style feed.add test using an actual plain-text 503 fetch response
 - [x] Add a client error-message mapping test for the feed-add toast path and document the verification scope
+- [x] Reproduce the non-YouTube loading loop with a standard RSS URL
+- [x] Ensure generic feed discovery has a strict overall deadline and finite candidate attempts
+- [x] Add regression coverage proving non-YouTube add-feed requests settle instead of remaining pending
+- [x] Reproduce the loading loop with a real non-YouTube RSS/Atom source through the add-feed flow
+- [x] Add integration coverage for feed.add settling within the bounded deadline on non-YouTube failures
+- [x] Add client verification that the add-feed loading state clears and surfaces the bounded error message
+- [x] Verify a real BBC RSS URL at the transport/parser boundary; published UI authentication is required for the interactive dashboard flow
+- [x] Verify the add-feed pending state is bound to the mutation and the normalized error mapping is covered by client tests
+- [x] Resolve Reddit community page URLs to their public `.rss` endpoints
+- [x] Add a targeted regression test for https://www.reddit.com/r/technology/ and bounded import completion
+- [x] Add feed.add integration coverage proving the Reddit Technology URL settles within the bounded deadline

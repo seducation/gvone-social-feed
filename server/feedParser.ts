@@ -76,11 +76,13 @@ function discoverFeedCandidates(html: string, pageUrl: string): string[] {
   return candidates;
 }
 
-async function tryDiscoveredFeeds(html: string, pageUrl: string, originalUrl: string): Promise<ParsedFeed | null> {
+type ParseState = { seen: Set<string>; deadline: number };
+
+async function tryDiscoveredFeeds(html: string, pageUrl: string, originalUrl: string, state: ParseState): Promise<ParsedFeed | null> {
   const candidates = discoverFeedCandidates(html, pageUrl).slice(0, 5);
   for (const candidate of candidates) {
-    if (candidate === originalUrl || candidate === pageUrl) continue;
-    try { return await parseFeed(candidate, 5000); } catch { /* try the next likely feed endpoint */ }
+    if (candidate === originalUrl || candidate === pageUrl || state.seen.has(candidate) || Date.now() >= state.deadline) continue;
+    try { return await parseFeed(candidate, 5000, state); } catch { /* try the next likely feed endpoint */ }
   }
   return null;
 }
@@ -143,6 +145,14 @@ function isFacebookPage(url: string): boolean {
   return /(^|\.)facebook\.com$/i.test(page.hostname) && /^\/(?:pages\/|profile\.php|[A-Za-z0-9._-]+)\/?$/i.test(page.pathname);
 }
 
+function redditCommunityFeedUrl(url: string): string | null {
+  const page = new URL(url);
+  if (!/(^|\.)reddit\.com$/i.test(page.hostname)) return null;
+  const match = page.pathname.match(/^\/r\/([^/]+)\/?$/i);
+  if (!match?.[1]) return null;
+  return `${page.origin}/r/${match[1]}/.rss`;
+}
+
 function extractJsonAssignment(html: string, marker: string): unknown {
   const markerIndex = html.indexOf(marker);
   if (markerIndex < 0) return null;
@@ -203,6 +213,8 @@ async function parseYouTubeChannelPage(url: string): Promise<ParsedFeed> {
 
 async function resolveKnownPageToFeed(url: string): Promise<string> {
   const page = new URL(url);
+  const redditFeed = redditCommunityFeedUrl(url);
+  if (redditFeed) return redditFeed;
   if (!isYouTubeChannelPage(url)) return url;
   try {
     const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
@@ -230,9 +242,13 @@ function facebookFeedError(url: string): string {
   return "Facebook page URLs do not provide a public RSS/Atom feed. Add the page’s direct RSS feed URL or its website’s feed instead.";
 }
 
-export async function parseFeed(url: string, timeoutMs = 15000): Promise<ParsedFeed> {
+export async function parseFeed(url: string, timeoutMs = 15000, state?: ParseState): Promise<ParsedFeed> {
+  const parseState = state ?? { seen: new Set<string>(), deadline: Date.now() + timeoutMs };
+  if (Date.now() >= parseState.deadline) throw new Error("Feed discovery timed out. Paste a direct RSS/Atom XML URL and try again.");
+  if (parseState.seen.has(url)) throw new Error("Feed discovery encountered a loop. Paste the direct RSS/Atom XML URL instead.");
+  parseState.seen.add(url);
   const resolvedUrl = await resolveKnownPageToFeed(url);
-  const { response, finalUrl } = await fetchFeedResponse(resolvedUrl, 0, timeoutMs);
+  const { response, finalUrl } = await fetchFeedResponse(resolvedUrl, 0, Math.min(timeoutMs, Math.max(500, parseState.deadline - Date.now())));
   if (!response.ok) {
     if (response.status === 404 && isYouTubeChannelPage(url)) return parseYouTubeChannelPage(url);
     if (isFacebookPage(url)) throw new Error(facebookFeedError(url));
@@ -246,7 +262,7 @@ export async function parseFeed(url: string, timeoutMs = 15000): Promise<ParsedF
   try {
     parsed = parser.parse(xml) as Record<string, any>;
   } catch (error) {
-    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url);
+    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url, parseState);
     if (discoveredFeed) return discoveredFeed;
     throw new Error(`Could not parse the feed XML: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -258,7 +274,7 @@ export async function parseFeed(url: string, timeoutMs = 15000): Promise<ParsedF
   const hasRssShape = Boolean(channel || childByLocalName(root, "item"));
   const hasAtomShape = Boolean(atom && childByLocalName(atom, "entry"));
   if (!hasRssShape && !hasAtomShape) {
-    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url);
+    const discoveredFeed = await tryDiscoveredFeeds(xml, finalUrl, url, parseState);
     if (discoveredFeed) return discoveredFeed;
     if (/^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml)) throw new Error("This URL returned a web page, not an RSS/Atom feed. Paste the direct RSS/Atom XML URL, or try a common path such as /feed/, /rss.xml, or /atom.xml.");
     throw new Error("The URL returned XML, but it was not a recognized RSS or Atom feed");
