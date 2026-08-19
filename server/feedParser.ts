@@ -110,9 +110,72 @@ function articleFromItem(raw: unknown, baseUrl: string, atom = false): ParsedArt
   };
 }
 
+function isYouTubeChannelPage(url: string): boolean {
+  const page = new URL(url);
+  return /(^|\.)youtube\.com$/i.test(page.hostname) && /^\/(?:@|channel\/|c\/|user\/)/i.test(page.pathname);
+}
+
+function extractJsonAssignment(html: string, marker: string): unknown {
+  const markerIndex = html.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const start = html.indexOf("{", markerIndex + marker.length);
+  if (start < 0) return null;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < html.length; index += 1) {
+    const char = html[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') { quoted = true; continue; }
+    if (char === "{") depth += 1;
+    if (char === "}" && --depth === 0) {
+      try { return JSON.parse(html.slice(start, index + 1)); } catch { return null; }
+    }
+  }
+  return null;
+}
+
+function youtubePageToFeed(html: string, pageUrl: string): ParsedFeed {
+  const data = extractJsonAssignment(html, "ytInitialData = ") as Record<string, unknown> | null;
+  const articles: ParsedArticle[] = [];
+  const seen = new Set<string>();
+  const walk = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) { value.forEach(walk); return; }
+    const record = value as Record<string, unknown>;
+    const videoId = typeof record.videoId === "string" ? record.videoId : null;
+    const titleNode = record.title as Record<string, unknown> | undefined;
+    const titleRuns = titleNode?.runs as Array<Record<string, unknown>> | undefined;
+    const title = asText(titleRuns?.[0]?.text ?? titleNode?.simpleText);
+    if (videoId && title && !seen.has(videoId)) {
+      seen.add(videoId);
+      const thumbs = (record.thumbnail as Record<string, unknown> | undefined)?.thumbnails as Array<Record<string, unknown>> | undefined;
+      const thumbnail = thumbs?.at(-1)?.url;
+      const descriptionNode = record.descriptionSnippet as Record<string, unknown> | undefined;
+      const descriptionRuns = descriptionNode?.runs as Array<Record<string, unknown>> | undefined;
+      articles.push({ guid: `youtube:${videoId}`, title, link: `https://www.youtube.com/watch?v=${videoId}`, description: asText(descriptionRuns?.map((run) => asText(run.text)).join("")) || null, publishedAt: null, thumbnailUrl: typeof thumbnail === "string" ? thumbnail : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, videoUrl: `https://www.youtube.com/watch?v=${videoId}`, videoMimeType: "text/html" });
+    }
+    Object.values(record).forEach(walk);
+  };
+  walk(data);
+  const pageTitle = html.match(/<title[^>]*>([^<]+?)(?:\s+-\s+YouTube)?<\/title>/i)?.[1]?.trim() || new URL(pageUrl).pathname.replace(/^\/@?/, "") || "YouTube channel";
+  return { title: pageTitle, description: null, faviconUrl: "https://www.youtube.com/favicon.ico", articles: articles.slice(0, 100) };
+}
+
+async function parseYouTubeChannelPage(url: string): Promise<ParsedFeed> {
+  const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
+  if (!response.ok) throw new Error(`YouTube channel page returned HTTP ${response.status}`);
+  return youtubePageToFeed(await response.text(), url);
+}
+
 async function resolveKnownPageToFeed(url: string): Promise<string> {
   const page = new URL(url);
-  if (!/(^|\.)youtube\.com$/i.test(page.hostname) || !/^\/(?:@|channel\/|c\/|user\/)/i.test(page.pathname)) return url;
+  if (!isYouTubeChannelPage(url)) return url;
   try {
     const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
     const html = await response.text();
@@ -136,7 +199,10 @@ async function fetchFeedResponse(url: string, redirects = 0): Promise<{ response
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   const resolvedUrl = await resolveKnownPageToFeed(url);
   const { response, finalUrl } = await fetchFeedResponse(resolvedUrl);
-  if (!response.ok) throw new Error(`Feed returned HTTP ${response.status}`);
+  if (!response.ok) {
+    if (response.status === 404 && isYouTubeChannelPage(url)) return parseYouTubeChannelPage(url);
+    throw new Error(`Feed returned HTTP ${response.status}`);
+  }
   const xml = await response.text();
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
   let parsed: Record<string, any>;

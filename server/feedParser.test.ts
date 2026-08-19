@@ -27,6 +27,18 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.title).toBe("Namespaced story");
   });
 
+  it("falls back to channel-page videos when YouTube RSS returns 404", async () => {
+    const page = `<title>NASA - YouTube</title><script>var ytInitialData = {"videoRenderer":{"videoId":"abc123","title":{"runs":[{"text":"NASA upload"}]},"thumbnail":{"thumbnails":[{"url":"https://i.ytimg.com/vi/abc123/hqdefault.jpg"}]}}};</script>`;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<html><link rel="canonical" href="https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ" /></html>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`not found`, { status: 404 }))
+      .mockResolvedValueOnce(new Response(page, { status: 200 })));
+    const result = await parseFeed("https://m.youtube.com/@NASA");
+    expect(result.title).toBe("NASA");
+    expect(result.articles[0]?.title).toBe("NASA upload");
+    expect(result.articles[0]?.link).toBe("https://www.youtube.com/watch?v=abc123");
+  });
+
   it("resolves a YouTube @channel page to its channel feed", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(`<html><link rel="canonical" href="https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ" /></html>`, { status: 200 }))

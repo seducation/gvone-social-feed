@@ -28,3 +28,5 @@
 - [x] Add regression tests for wrapped feeds and clear non-feed error messages
 - [x] Resolve YouTube channel page URLs such as https://m.youtube.com/@NASA to the channel’s RSS/Atom feed
 - [x] Add a targeted NASA YouTube channel regression test and verify feed metadata/articles
+- [x] Fix YouTube channel feed resolution when the generated videos.xml endpoint returns HTTP 404
+- [x] Add regression coverage for YouTube 404 fallback behavior
