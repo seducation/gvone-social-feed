@@ -131,3 +131,4 @@
 - [x] Show each user-created category group as a combined, private feed in the reader and source manager
 - [x] Add regression coverage for creating a category group with selected RSS sources and opening its merged feed
 - [x] Verify a created category group appears in the source manager and opens its combined reader feed with merged selected-source articles
+- [x] Move Manage and Shorts from the top header to the right side of the horizontal source-navigation bar
