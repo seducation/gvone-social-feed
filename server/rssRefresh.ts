@@ -1,4 +1,5 @@
 import { rssFeeds } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 import { getDb, saveParsedFeed } from "./db";
 import { parseFeed } from "./feedParser";
 
@@ -56,6 +57,6 @@ export async function refreshFeedBatch(feeds: RefreshableFeed[], concurrency = 3
 export async function refreshAllFeeds(): Promise<RefreshSummary> {
   const db = await getDb();
   if (!db) return { attempted: 0, refreshed: 0, failed: 0, failures: [] };
-  const feeds = await db.select().from(rssFeeds);
+  const feeds = await db.select().from(rssFeeds).where(eq(rssFeeds.isEnabled, true));
   return refreshFeedBatch(feeds);
 }

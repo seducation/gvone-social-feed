@@ -1,0 +1,1 @@
+ALTER TABLE `rss_feeds` ADD `isEnabled` boolean DEFAULT true NOT NULL;

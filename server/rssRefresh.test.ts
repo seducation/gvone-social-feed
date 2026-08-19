@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./db", () => ({ getDb: vi.fn(), saveParsedFeed: vi.fn() }));
 vi.mock("./feedParser", () => ({ parseFeed: vi.fn() }));
 
-import { saveParsedFeed } from "./db";
+import { getDb, saveParsedFeed } from "./db";
 import { parseFeed } from "./feedParser";
-import { refreshFeedBatch } from "./rssRefresh";
+import { refreshAllFeeds, refreshFeedBatch } from "./rssRefresh";
 
 describe("refreshFeedBatch", () => {
   it("settles every feed and returns failure details without aborting the remaining refreshes", async () => {
@@ -58,5 +58,20 @@ describe("refreshFeedBatch", () => {
 
     await expect(refreshFeedBatch([{ id: 3, userId: 42, url: "https://example.com/recovering.xml" }], 1, 0)).resolves.toEqual({ attempted: 1, refreshed: 1, failed: 0, failures: [] });
     expect(parseFeed).toHaveBeenCalledTimes(2);
+  });
+
+  it("selects only enabled sources for the scheduled background refresh", async () => {
+    vi.mocked(parseFeed).mockReset();
+    vi.mocked(saveParsedFeed).mockReset();
+    const where = vi.fn().mockResolvedValue([{ id: 9, userId: 42, url: "https://example.com/enabled.xml", isEnabled: true }]);
+    const from = vi.fn().mockReturnValue({ where });
+    const select = vi.fn().mockReturnValue({ from });
+    vi.mocked(getDb).mockResolvedValue({ select } as never);
+    vi.mocked(parseFeed).mockResolvedValue({ title: "Enabled", description: null, faviconUrl: null, articles: [] } as never);
+    vi.mocked(saveParsedFeed).mockResolvedValue(undefined as never);
+
+    await expect(refreshAllFeeds()).resolves.toMatchObject({ attempted: 1, refreshed: 1, failed: 0 });
+    expect(where).toHaveBeenCalledTimes(1);
+    expect(parseFeed).toHaveBeenCalledWith("https://example.com/enabled.xml");
   });
 });

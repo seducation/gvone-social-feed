@@ -25,6 +25,9 @@ function installShortsObserver() {
 
 const mocks = vi.hoisted(() => ({
   refreshAllMutate: vi.fn(),
+  createGroupWithFeedsMutate: vi.fn(),
+  setEnabledMutate: vi.fn(),
+  refetchManagedFeeds: vi.fn().mockResolvedValue(undefined),
   toastSuccess: vi.fn(),
   invalidateDashboard: vi.fn().mockResolvedValue(undefined),
   invalidateArticles: vi.fn().mockResolvedValue(undefined),
@@ -36,8 +39,13 @@ const mocks = vi.hoisted(() => ({
       { id: 8, title: "Technology", customTitle: null, faviconUrl: null, url: "https://www.reddit.com/r/technology/.rss" },
       { id: 9, title: "CNN World", customTitle: null, faviconUrl: null, url: "https://rss.cnn.com/rss/edition_world.rss" },
     ],
-    groups: [],
+    groups: [] as Array<{ id: number; name: string }>,
   },
+  managedFeeds: [
+    { id: 7, title: "NASA", customTitle: null, faviconUrl: null, url: "https://m.youtube.com/@NASA", description: "NASA video updates", lastFetchedAt: new Date("2026-08-19T08:00:00Z"), isEnabled: true },
+    { id: 8, title: "Technology", customTitle: null, faviconUrl: null, url: "https://www.reddit.com/r/technology/.rss", description: null, lastFetchedAt: new Date("2026-08-19T07:00:00Z"), isEnabled: false },
+    { id: 9, title: "CNN World", customTitle: null, faviconUrl: null, url: "https://rss.cnn.com/rss/edition_world.rss", description: null, lastFetchedAt: new Date("2026-08-19T06:00:00Z"), isEnabled: true },
+  ],
   allArticles: [
     { id: 1, feedId: 7, title: "NASA update", link: "https://example.com/nasa", description: null, publishedAt: new Date("2026-08-19T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/nasa.mp4" },
     { id: 2, feedId: 8, title: "Reddit update", link: "https://example.com/reddit", description: null, publishedAt: new Date("2026-08-19T07:00:00Z"), thumbnailUrl: null, videoUrl: null },
@@ -55,14 +63,18 @@ vi.mock("@/lib/trpc", () => ({
     dashboard: { useQuery: () => ({ isLoading: false, data: mocks.dashboardData }) },
     feed: {
       articles: { useQuery: () => ({ data: mocks.allArticles }) },
+      list: { useQuery: () => ({ data: mocks.managedFeeds, refetch: mocks.refetchManagedFeeds }) },
+      sourceArticles: { useQuery: () => ({ data: mocks.allArticles.filter((article) => article.feedId === 7), isLoading: false }) },
       add: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       refresh: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       refreshAll: { useMutation: (options: typeof mocks.refreshAllOptions) => { mocks.refreshAllOptions = options; return { mutate: mocks.refreshAllMutate, isPending: false }; } },
+      setEnabled: { useMutation: () => ({ mutate: mocks.setEnabledMutate, isPending: false }) },
       remove: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     group: {
-      articles: { useQuery: () => ({ data: [] }) },
+      articles: { useQuery: (input: { id: number }) => ({ data: input.id === 44 ? [mocks.allArticles[0], mocks.allArticles[2]] : [] }) },
       create: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      createWithFeeds: { useMutation: () => ({ mutate: mocks.createGroupWithFeedsMutate, isPending: false }) },
       refresh: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       rename: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       delete: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
@@ -77,11 +89,15 @@ describe("dashboard reload refresh controls", () => {
   afterEach(() => {
     cleanup();
     mocks.refreshAllMutate.mockClear();
+    mocks.createGroupWithFeedsMutate.mockClear();
+    mocks.setEnabledMutate.mockClear();
+    mocks.refetchManagedFeeds.mockClear();
     mocks.toastSuccess.mockClear();
     mocks.invalidateDashboard.mockClear();
     mocks.invalidateArticles.mockClear();
     mocks.invalidateGroupArticles.mockClear();
     mocks.refreshAllOptions = undefined;
+    mocks.dashboardData.groups.splice(0);
     shortObserverCallback = undefined;
     delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
     localStorage.removeItem("signalflow-shorts-sound");
@@ -125,6 +141,51 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.queryByText("NASA update")).toBeNull();
     expect(screen.queryByText("Reddit update")).toBeNull();
     expect(screen.getByText(/Stories from your saved CNN feeds/)).toBeTruthy();
+  });
+
+  it("opens the separate source manager from the header and lets a reader open or disable a private RSS source", async () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage RSS sources" }));
+    const manager = screen.getByRole("dialog", { name: "Manage RSS sources" });
+
+    expect(within(manager).getAllByText("Manage RSS sources").length).toBeGreaterThan(0);
+    expect(within(manager).getByText("Disabled")).toBeTruthy();
+    fireEvent.click(within(manager).getByRole("button", { name: "Open NASA feed" }));
+    await waitFor(() => expect(within(manager).getByText("All saved stories")).toBeTruthy());
+    expect(within(manager).getByText("NASA update")).toBeTruthy();
+    fireEvent.click(within(manager).getByRole("button", { name: "All sources" }));
+    fireEvent.click(within(manager).getByRole("button", { name: "Disable NASA" }));
+
+    expect(mocks.setEnabledMutate).toHaveBeenCalledWith({ id: 7, isEnabled: false });
+  });
+
+  it("lists a category group in the source manager and opens its merged selected-source feed", async () => {
+    mocks.dashboardData.groups.push({ id: 44, name: "Science desk" });
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage RSS sources" }));
+    const manager = screen.getByRole("dialog", { name: "Manage RSS sources" });
+    fireEvent.click(within(manager).getByRole("button", { name: "Open Science desk group feed" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Manage RSS sources" })).toBeNull());
+    expect(screen.getAllByText("Science desk").length).toBeGreaterThan(0);
+    expect(screen.getByText("NASA update")).toBeTruthy();
+    expect(screen.getByText("CNN update")).toBeTruthy();
+    expect(screen.queryByText("Reddit update")).toBeNull();
+  });
+
+  it("creates a category group from multiple user-selected RSS sources", () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create collection" }));
+    const builder = screen.getByRole("dialog", { name: "Create category group" });
+    fireEvent.change(within(builder).getByPlaceholderText("Space, Tech, Markets..."), { target: { value: "Science desk" } });
+    fireEvent.click(within(builder).getByRole("button", { name: "Select NASA" }));
+    fireEvent.click(within(builder).getByRole("button", { name: "Select CNN World" }));
+    fireEvent.click(within(builder).getByRole("button", { name: "Create combined feed" }));
+
+    expect(mocks.createGroupWithFeedsMutate).toHaveBeenCalledWith({ name: "Science desk", feedIds: [7, 9] });
   });
 
   it("opens a vertical Shorts dialog containing only playable RSS video stories", () => {
@@ -283,7 +344,7 @@ describe("dashboard reload refresh controls", () => {
     window.dispatchEvent(new MessageEvent("message", { origin: "https://www.youtube.com", data: JSON.stringify({ event: "infoDelivery", info: { muted: false } }) }));
 
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Mute Shorts" }).getAttribute("aria-pressed")).toBe("true"));
-    expect(localStorage.getItem("signalflow-shorts-sound")).toBe("on");
+    await waitFor(() => expect(localStorage.getItem("signalflow-shorts-sound")).toBe("on"));
     first.videoUrl = originalUrl;
     first.videoMimeType = originalMimeType;
   });

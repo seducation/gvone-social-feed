@@ -1,4 +1,4 @@
-import { int, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { boolean, int, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -20,6 +20,7 @@ export const rssFeeds = mysqlTable("rss_feeds", {
   title: varchar("title", { length: 512 }).notNull(),
   description: text("description"),
   faviconUrl: varchar("faviconUrl", { length: 2048 }),
+  isEnabled: boolean("isEnabled").notNull().default(true),
   lastFetchedAt: timestamp("lastFetchedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({ userUrl: uniqueIndex("rss_feeds_user_url").on(table.userId, table.url) }));

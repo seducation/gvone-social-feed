@@ -118,3 +118,16 @@
 - [x] Reduce Shorts media startup delay by loading only the active and nearby videos at high priority
 - [x] Sync YouTube Shorts player mute and unmute actions with the persisted Shorts sound preference
 - [x] Apply the saved Shorts sound preference after an embedded YouTube player finishes loading
+- [x] Add a dedicated source-management interface separate from the reader
+- [x] Persist a private enabled or disabled state for every RSS source
+- [x] Exclude disabled sources from feed views and background refresh while preserving their saved data
+- [x] Add protected enable, disable, and permanent-remove source actions with regression coverage
+- [x] Let each RSS source in the management interface open its complete saved article feed
+- [x] Add a Manage sources button beside Shorts in the top header
+- [x] Add server regressions for protected source enable and disable success plus ownership protection
+- [x] Add permanent source removal regressions for linked records, stored articles, and unowned-source protection
+- [x] Prove disabled sources are skipped in refresh batches while their saved articles remain privately readable
+- [x] Add a category group builder where users name a group and select multiple RSS sources
+- [x] Show each user-created category group as a combined, private feed in the reader and source manager
+- [x] Add regression coverage for creating a category group with selected RSS sources and opening its merged feed
+- [x] Verify a created category group appears in the source manager and opens its combined reader feed with merged selected-source articles

@@ -31,12 +31,13 @@ describe("feed.refreshAll", () => {
     vi.mocked(saveParsedFeed).mockResolvedValue(undefined as never);
 
     await expect(appRouter.createCaller(createContext()).feed.refreshAll()).resolves.toEqual({ attempted: 2, refreshed: 1, failed: 1, failures: [{ feedId: 2, message: "Source unavailable" }] });
+    expect(listFeeds).toHaveBeenCalledWith(42, true);
     expect(parseFeed).toHaveBeenCalledTimes(2);
     expect(saveParsedFeed).toHaveBeenCalledWith(42, 1, expect.anything());
   });
 
   it("persists newly extracted playable video metadata when an existing source is refreshed", async () => {
-    const feed = { id: 7, userId: 42, url: "https://example.com/video.xml", title: "Video source" };
+    const feed = { id: 7, userId: 42, url: "https://example.com/video.xml", title: "Video source", isEnabled: true };
     const parsed = { title: "Video source", description: null, faviconUrl: null, articles: [{ guid: "clip-7", title: "New clip", link: "https://example.com/clip", description: null, publishedAt: null, thumbnailUrl: null, videoUrl: "https://cdn.example.com/clip.mp4", videoMimeType: "video/mp4" }] };
     vi.mocked(getFeed).mockResolvedValue(feed as never);
     vi.mocked(parseFeed).mockResolvedValue(parsed as never);
@@ -44,5 +45,13 @@ describe("feed.refreshAll", () => {
 
     await expect(appRouter.createCaller(createContext()).feed.refresh({ id: 7 })).resolves.toMatchObject({ id: 7, lastFetchedAt: expect.any(Date) });
     expect(saveParsedFeed).toHaveBeenCalledWith(42, 7, expect.objectContaining({ articles: [expect.objectContaining({ videoUrl: "https://cdn.example.com/clip.mp4", videoMimeType: "video/mp4" })] }));
+  });
+
+  it("rejects a manual refresh for a disabled private source without fetching it", async () => {
+    vi.mocked(parseFeed).mockClear();
+    vi.mocked(getFeed).mockResolvedValue({ id: 8, userId: 42, url: "https://example.com/paused.xml", title: "Paused", isEnabled: false } as never);
+
+    await expect(appRouter.createCaller(createContext()).feed.refresh({ id: 8 })).rejects.toMatchObject({ code: "CONFLICT", message: "Enable this source before refreshing it" });
+    expect(parseFeed).not.toHaveBeenCalled();
   });
 });
