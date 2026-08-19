@@ -113,3 +113,5 @@
 - [x] Exercise the Shorts IntersectionObserver path in a browser-like test harness
 - [x] Assert at component level that an off-screen embedded YouTube Short dispatches the pause helper
 - [x] Make the horizontal source-navigation bar compact and dynamically reduce its visual footprint while scrolling
+- [x] Preserve the reader’s Shorts sound preference across visible native video items
+- [x] Improve active-Short playback responsiveness and add regressions for sound continuity

@@ -84,6 +84,7 @@ describe("dashboard reload refresh controls", () => {
     mocks.refreshAllOptions = undefined;
     shortObserverCallback = undefined;
     delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+    localStorage.removeItem("signalflow-shorts-sound");
   });
 
   it("refreshes saved feeds once after dashboard load and exposes feedback controls", async () => {
@@ -175,6 +176,42 @@ describe("dashboard reload refresh controls", () => {
 
     await waitFor(() => expect(pause.mock.instances).toContain(videos[0]));
     expect(play.mock.instances).toContain(videos[1]);
+    mocks.allArticles.pop();
+  });
+
+  it("preserves a reader-unmuted native Shorts preference as scrolling activates the next video", async () => {
+    mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
+    installShortsObserver();
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    await waitFor(() => expect(shortObserverCallback).toBeTypeOf("function"));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const cards = Array.from(dialog.querySelectorAll<HTMLElement>("[data-short-id]"));
+    const videos = Array.from(dialog.querySelectorAll("video"));
+    videos[0].muted = false;
+    fireEvent.volumeChange(videos[0]);
+
+    await waitFor(() => expect(localStorage.getItem("signalflow-shorts-sound")).toBe("on"));
+    act(() => shortObserverCallback?.([{ target: cards[1], isIntersecting: true, intersectionRatio: 0.7 } as unknown as IntersectionObserverEntry], {} as IntersectionObserver));
+
+    await waitFor(() => expect(videos[1].muted).toBe(false));
+    mocks.allArticles.pop();
+  });
+
+  it("lets the reader enable Shorts sound once and preloads the following native video", async () => {
+    mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const videos = Array.from(dialog.querySelectorAll("video"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on Shorts sound" }));
+
+    await waitFor(() => expect(localStorage.getItem("signalflow-shorts-sound")).toBe("on"));
+    expect(videos[0].muted).toBe(false);
+    expect(videos[1].getAttribute("preload")).toBe("auto");
+    expect(within(dialog).getByRole("button", { name: "Mute Shorts" }).getAttribute("aria-pressed")).toBe("true");
     mocks.allArticles.pop();
   });
 
