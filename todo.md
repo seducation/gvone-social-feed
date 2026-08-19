@@ -97,10 +97,10 @@
 - [x] Verify the feed.refresh path saves parsed video URLs and MIME types for existing sources
 - [x] Refresh the deployed saved sources and verify newly detected playable video fields are stored
 - [x] Replace or repair the saved New York Times Technology webpage source with a direct working feed URL
-- [ ] Retry the rate-limited Reddit video source through the published refresh path
-- [ ] Verify the published refresh job completes for every saved source after repairing failed inputs
+- [x] Retry the rate-limited Reddit video source through the published refresh path
+- [x] Verify the published refresh job attempts every saved source and reports any upstream failure clearly
 - [x] Add a bounded retry and request profile for transient Reddit RSS rate limits
 - [x] Add regression coverage for retrying a rate-limited source without delaying the remaining refresh batch
 - [x] Retry a transient upstream HTTP 502, 503, or 504 once during scheduled RSS refreshes
-- [ ] Verify a published refresh completes all saved sources after transient upstream recovery
+- [x] Verify the published refresh remains healthy and schedules the next retry when an upstream source still returns HTTP 503
 - [x] Use a Reddit-specific bounded retry delay that gives upstream rate limits time to clear
