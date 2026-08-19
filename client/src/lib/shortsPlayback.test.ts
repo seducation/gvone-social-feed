@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { pauseEmbeddedShort, playEmbeddedShort, setEmbeddedShortMuted, syncShortPlayback } from "./shortsPlayback";
+import { pauseEmbeddedShort, playEmbeddedShort, readEmbeddedShortMuteState, requestEmbeddedShortMuteState, setEmbeddedShortMuted, syncShortPlayback } from "./shortsPlayback";
 
 describe("syncShortPlayback", () => {
   it("plays only the active Short and pauses every off-screen video", () => {
@@ -52,5 +52,17 @@ describe("syncShortPlayback", () => {
 
     expect(postMessage).toHaveBeenNthCalledWith(1, JSON.stringify({ event: "command", func: "playVideo", args: "" }), "*");
     expect(postMessage).toHaveBeenNthCalledWith(2, JSON.stringify({ event: "command", func: "unMute", args: "" }), "*");
+  });
+
+  it("requests and reads the YouTube player mute state", () => {
+    const postMessage = vi.fn();
+    const iframe = { contentWindow: { postMessage } } as unknown as HTMLIFrameElement;
+
+    requestEmbeddedShortMuteState(iframe);
+
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ event: "command", func: "isMuted", args: "" }), "*");
+    expect(readEmbeddedShortMuteState(JSON.stringify({ event: "infoDelivery", info: { muted: false } }))).toBe(false);
+    expect(readEmbeddedShortMuteState({ event: "infoDelivery", info: { muted: true } })).toBe(true);
+    expect(readEmbeddedShortMuteState("not-json")).toBeNull();
   });
 });

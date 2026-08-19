@@ -269,6 +269,25 @@ describe("dashboard reload refresh controls", () => {
     first.videoMimeType = originalMimeType;
   });
 
+  it("remembers a YouTube player unmute action for the Shorts sound control", async () => {
+    const first = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = first.videoUrl;
+    const originalMimeType = first.videoMimeType;
+    first.videoUrl = "https://www.youtube.com/embed/example";
+    first.videoMimeType = "text/html";
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Turn on Shorts sound" })).toBeTruthy());
+    window.dispatchEvent(new MessageEvent("message", { origin: "https://www.youtube.com", data: JSON.stringify({ event: "infoDelivery", info: { muted: false } }) }));
+
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Mute Shorts" }).getAttribute("aria-pressed")).toBe("true"));
+    expect(localStorage.getItem("signalflow-shorts-sound")).toBe("on");
+    first.videoUrl = originalUrl;
+    first.videoMimeType = originalMimeType;
+  });
+
   it("shows the Shorts empty state when the library has no playable video", () => {
     const originalVideos = mocks.allArticles.map((article) => article.videoUrl);
     mocks.allArticles.forEach((article) => { article.videoUrl = null; });

@@ -3,7 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { feedErrorMessage } from "@/lib/feedError";
 import { shouldStartPageLoadRefresh } from "@/lib/dashboardRefresh";
-import { pauseEmbeddedShort, playEmbeddedShort, setEmbeddedShortMuted, syncShortPlayback } from "@/lib/shortsPlayback";
+import { pauseEmbeddedShort, playEmbeddedShort, readEmbeddedShortMuteState, requestEmbeddedShortMuteState, setEmbeddedShortMuted, syncShortPlayback } from "@/lib/shortsPlayback";
 import { buildSourceChannels, filterArticlesForSourceChannel, type SourceChannelKey, type SourceChannelKind } from "@/lib/sourceCategories";
 import { startLogin } from "@/const";
 import { toast } from "sonner";
@@ -180,6 +180,19 @@ export default function Home() {
     document.addEventListener("volumechange", rememberNativeShortSound, true);
     return () => document.removeEventListener("volumechange", rememberNativeShortSound, true);
   }, [showShorts]);
+
+  useEffect(() => {
+    const activeEmbed = activeShortId ? shortEmbedRefs.current.get(activeShortId) : undefined;
+    if (!showShorts || !activeEmbed) return;
+    const rememberYouTubeShortSound = (event: MessageEvent) => {
+      if (!/^https:\/\/www\.youtube(?:-nocookie)?\.com$/i.test(event.origin)) return;
+      const muted = readEmbeddedShortMuteState(event.data);
+      if (muted !== null) setShortsSoundEnabled(!muted);
+    };
+    window.addEventListener("message", rememberYouTubeShortSound);
+    requestEmbeddedShortMuteState(activeEmbed);
+    return () => window.removeEventListener("message", rememberYouTubeShortSound);
+  }, [activeShortId, showShorts]);
 
   useEffect(() => {
     if (!showShorts || !videoArticles.length) {
