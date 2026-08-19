@@ -92,14 +92,74 @@ function parseDate(value: string): Date | null {
   return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 
+type MediaCandidate = { url: string; mime: string; medium: string };
+
+function recordList(value: unknown): Record<string, unknown>[] {
+  const values = Array.isArray(value) ? value : [value];
+  return values.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+}
+
+function directChildrenByLocalName(item: Record<string, unknown>, name: string): unknown[] {
+  return Object.entries(item)
+    .filter(([key]) => localName(key) === name.toLowerCase())
+    .flatMap(([, value]) => Array.isArray(value) ? value : [value]);
+}
+
+function candidateFromRecord(record: Record<string, unknown>, baseUrl: string): MediaCandidate | null {
+  const rawUrl = record["@_url"] ?? record["@_src"] ?? record["@_href"];
+  if (!rawUrl) return null;
+  return {
+    url: absoluteUrl(String(rawUrl), baseUrl),
+    mime: String(record["@_type"] ?? "").toLowerCase(),
+    medium: String(record["@_medium"] ?? "").toLowerCase(),
+  };
+}
+
+function isVideoCandidate(candidate: MediaCandidate) {
+  return candidate.mime.startsWith("video/") || candidate.medium === "video" || /\.(?:mp4|m4v|webm|mov|ogv|m3u8)(?:$|[?#])/i.test(candidate.url);
+}
+
+function videoMime(candidate: MediaCandidate) {
+  if (candidate.mime.startsWith("video/")) return candidate.mime;
+  if (/\.webm(?:$|[?#])/i.test(candidate.url)) return "video/webm";
+  if (/\.m3u8(?:$|[?#])/i.test(candidate.url)) return "application/vnd.apple.mpegurl";
+  return "video/mp4";
+}
+
 function mediaUrl(item: Record<string, unknown>, baseUrl: string, description: string) {
-  const enclosure = first(childByLocalName(item, "enclosure")) as Record<string, unknown> | undefined;
-  const media = first(childByLocalName(item, "content")) as Record<string, unknown> | undefined;
-  const candidate = enclosure?.["@_url"] ?? media?.["@_url"];
-  const mime = String(enclosure?.["@_type"] ?? media?.["@_type"] ?? "");
-  const embedded = description.match(/<(?:video|source)[^>]+src=[\"']([^\"']+)[\"']/i)?.[1] ?? null;
-  if (embedded) return { url: absoluteUrl(embedded, baseUrl), mime: "video/mp4" };
-  return candidate ? { url: absoluteUrl(String(candidate), baseUrl), mime } : { url: null, mime: null };
+  const candidates: MediaCandidate[] = [];
+  for (const enclosure of directChildrenByLocalName(item, "enclosure")) {
+    const candidate = candidateFromRecord(first(enclosure) as Record<string, unknown>, baseUrl);
+    if (candidate) candidates.push(candidate);
+  }
+  for (const content of directChildrenByLocalName(item, "content")) {
+    const candidate = candidateFromRecord(first(content) as Record<string, unknown>, baseUrl);
+    if (candidate) candidates.push(candidate);
+  }
+  for (const group of directChildrenByLocalName(item, "group")) {
+    for (const content of recordList(group).flatMap((record) => directChildrenByLocalName(record, "content"))) {
+      const candidate = candidateFromRecord(first(content) as Record<string, unknown>, baseUrl);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+  for (const link of directChildrenByLocalName(item, "link")) {
+    const record = first(link) as Record<string, unknown>;
+    if (record?.["@_rel"] === "enclosure") {
+      const candidate = candidateFromRecord(record, baseUrl);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  const embeddedMatch = description.match(/<(?:video|source)[^>]+src=["']([^"']+)["'][^>]*>/i);
+  if (embeddedMatch?.[1]) {
+    const type = embeddedMatch[0].match(/\btype=["']([^"']+)["']/i)?.[1]?.toLowerCase() ?? "video/mp4";
+    return { url: absoluteUrl(embeddedMatch[1], baseUrl), mime: type };
+  }
+
+  const video = candidates.find(isVideoCandidate);
+  if (video) return { url: video.url, mime: videoMime(video) };
+  const image = candidates.find((candidate) => candidate.mime.startsWith("image/") || candidate.medium === "image");
+  return image ? { url: image.url, mime: image.mime || "image/jpeg" } : { url: null, mime: null };
 }
 
 async function discoverFavicon(feedUrl: string): Promise<string> {
@@ -116,11 +176,14 @@ async function discoverFavicon(feedUrl: string): Promise<string> {
 function articleFromItem(raw: unknown, baseUrl: string, atom = false): ParsedArticle {
   const item = (raw ?? {}) as Record<string, unknown>;
   const rawLink = childByLocalName(item, "link");
-  const linkValue = atom ? first(rawLink) as Record<string, unknown> | undefined : undefined;
+  const atomLinks = atom ? recordList(rawLink) : [];
+  const linkValue = atom ? atomLinks.find((link) => String(link["@_rel"] ?? "alternate") !== "enclosure") ?? atomLinks[0] : undefined;
   const link = atom ? String(linkValue?.["@_href"] ?? asText(rawLink)) : asText(rawLink);
   const description = asText(childByLocalName(item, "description") ?? childByLocalName(item, "content:encoded") ?? childByLocalName(item, "summary") ?? childByLocalName(item, "content"));
   const title = asText(childByLocalName(item, "title")) || "Untitled article";
   const media = mediaUrl(item, baseUrl, description);
+  const youtubeId = asText(childByLocalName(item, "videoid"));
+  const youtubeEmbed = youtubeId ? `https://www.youtube.com/embed/${youtubeId}` : null;
   const imageMatch = description.match(/<img[^>]+src=["']([^"']+)["']/i);
   const thumbnail = item["media:thumbnail"] as Record<string, unknown> | undefined;
   const thumbnailValue = thumbnail?.["@_url"] ?? imageMatch?.[1] ?? (media.mime && media.mime.startsWith("image/") ? media.url : null);
@@ -130,8 +193,8 @@ function articleFromItem(raw: unknown, baseUrl: string, atom = false): ParsedArt
     description: description ? stripMarkup(description).slice(0, 420) : null,
     publishedAt: parseDate(asText(childByLocalName(item, "pubDate") ?? childByLocalName(item, "published") ?? childByLocalName(item, "updated") ?? childByLocalName(item, "date"))),
     thumbnailUrl: thumbnailValue ? absoluteUrl(String(thumbnailValue), baseUrl) : null,
-    videoUrl: media.mime && media.mime.startsWith("video/") ? media.url : null,
-    videoMimeType: media.mime && media.mime.startsWith("video/") ? media.mime : null,
+    videoUrl: youtubeEmbed ?? (media.mime && (media.mime.startsWith("video/") || media.mime.includes("mpegurl")) ? media.url : null),
+    videoMimeType: youtubeEmbed ? "text/html" : (media.mime && (media.mime.startsWith("video/") || media.mime.includes("mpegurl")) ? media.mime : null),
   };
 }
 

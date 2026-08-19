@@ -134,6 +134,20 @@ describe("dashboard reload refresh controls", () => {
     mocks.allArticles.forEach((article, index) => { article.videoUrl = originalVideos[index]; });
   });
 
+  it("renders embeddable feed media in the article stream", () => {
+    const article = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
+    const originalUrl = article.videoUrl;
+    const originalMimeType = article.videoMimeType;
+    article.videoUrl = "https://www.youtube.com/embed/example";
+    article.videoMimeType = "text/html";
+
+    const { container } = render(<Home />);
+
+    expect(container.querySelector('iframe[title="Embedded feed video"]')).toBeTruthy();
+    article.videoUrl = originalUrl;
+    article.videoMimeType = originalMimeType;
+  });
+
   it("keeps the source tabs horizontally scrollable and selectable on a narrow screen", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
     render(<Home />);

@@ -89,3 +89,10 @@
 - [x] Add regression coverage for video-only filtering and Shorts access
 - [x] Verify Shorts excludes text-only RSS articles when video and non-video stories are mixed
 - [x] Verify Shorts shows its empty-state CTA when no playable RSS video is saved
+- [x] Diagnose why supported RSS video enclosures and media tags are saved as title-only articles
+- [x] Extract direct playable video URLs from common RSS and Atom enclosure and media formats
+- [ ] Refresh existing saved sources so newly detected video fields reach article cards and Shorts
+- [x] Add RSS media parsing and persistence regression coverage
+- [x] Verify extracted video URLs and MIME types persist to stored RSS articles after refresh
+- [x] Verify the feed.refresh path saves parsed video URLs and MIME types for existing sources
+- [ ] Refresh the deployed saved sources and verify newly detected playable video fields are stored

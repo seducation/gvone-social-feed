@@ -18,6 +18,22 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.videoUrl).toBe("https://example.com/clip.mp4");
   });
 
+  it("extracts playable media from Media RSS content and groups even when another enclosure comes first", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Clips</title><item><title>Media content clip</title><link>https://example.com/one</link><enclosure url="https://example.com/audio.mp3" type="audio/mpeg" /><media:content url="/clips/one.webm" medium="video" /></item><item><title>Grouped clip</title><link>https://example.com/two</link><media:group><media:content url="/clips/two.mp4" type="video/mp4" /></media:group></item></channel></rss>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/feed.xml");
+    expect(result.articles.map((article) => [article.videoUrl, article.videoMimeType])).toEqual([
+      ["https://example.com/clips/one.webm", "video/webm"],
+      ["https://example.com/clips/two.mp4", "video/mp4"],
+    ]);
+  });
+
+  it("extracts Atom video enclosure links and makes YouTube Atom entries embeddable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015"><title>Video atom</title><entry><id>atom-video</id><title>Atom enclosure</title><link href="https://example.com/story"/><link rel="enclosure" href="/video.m3u8" type="application/vnd.apple.mpegurl"/></entry><entry><id>yt:video:abc123</id><yt:videoId>abc123</yt:videoId><title>YouTube upload</title><link href="https://www.youtube.com/watch?v=abc123"/></entry></feed>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/atom.xml");
+    expect(result.articles[0]).toMatchObject({ videoUrl: "https://example.com/video.m3u8", videoMimeType: "application/vnd.apple.mpegurl" });
+    expect(result.articles[1]).toMatchObject({ videoUrl: "https://www.youtube.com/embed/abc123", videoMimeType: "text/html" });
+  });
+
   it("supports namespaced RSS and RDF/RSS 1.0 roots", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rss:channel><rss:title>RDF Journal</rss:title></rss:channel><rss:item><rss:title>Namespaced story</rss:title><rss:link>https://example.com/namespaced</rss:link><dc:date>2026-08-19T08:00:00Z</dc:date></rss:item></rdf:RDF>`, { status: 200 }))

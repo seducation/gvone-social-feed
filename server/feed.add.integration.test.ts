@@ -4,8 +4,10 @@ import type { TrpcContext } from "./_core/context";
 
 vi.mock("./db", async () => {
   const actual = await vi.importActual<typeof import("./db")>("./db");
-  return { ...actual, getDb: vi.fn().mockResolvedValue(null) };
+  return { ...actual, getDb: vi.fn().mockResolvedValue(null), saveParsedFeed: vi.fn() };
 });
+
+import { getDb, saveParsedFeed } from "./db";
 
 function createContext(): TrpcContext {
   return {
@@ -16,7 +18,7 @@ function createContext(): TrpcContext {
 }
 
 describe("feed.add integration error handling", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.mocked(getDb).mockResolvedValue(null as never); vi.mocked(saveParsedFeed).mockReset(); });
 
   it("settles a non-YouTube website import instead of remaining pending", async () => {
     const fetchMock = vi.fn()
@@ -57,5 +59,17 @@ describe("feed.add integration error handling", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Service Unavailable", { status: 503, headers: { "content-type": "text/plain" } })));
     const caller = appRouter.createCaller(createContext());
     await expect(caller.feed.add({ url: "https://example.com/outage.xml" })).rejects.toThrow("The feed service is temporarily unavailable. Please try again in a moment.");
+  });
+
+  it("passes parsed playable video metadata into persistence when a feed is added", async () => {
+    const values = vi.fn().mockResolvedValue([{ insertId: 91 }]);
+    vi.mocked(getDb).mockResolvedValue({ insert: vi.fn().mockReturnValue({ values }) } as never);
+    vi.mocked(saveParsedFeed).mockResolvedValue(undefined as never);
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Video source</title><item><guid>clip-1</guid><title>Clip</title><link>https://example.com/clip</link><media:content url="https://cdn.example.com/clip.mp4" medium="video" /></item></channel></rss>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html></html>", { status: 200 })));
+
+    await expect(appRouter.createCaller(createContext()).feed.add({ url: "https://example.com/video.xml" })).resolves.toMatchObject({ id: 91, title: "Video source" });
+    expect(saveParsedFeed).toHaveBeenCalledWith(42, 91, expect.objectContaining({ articles: [expect.objectContaining({ videoUrl: "https://cdn.example.com/clip.mp4", videoMimeType: "video/mp4" })] }));
   });
 });
