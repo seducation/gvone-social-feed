@@ -23,3 +23,8 @@
 - [x] Fix false-negative detection for valid RSS or Atom feeds that use real-world namespace and root variations
 - [x] Add regression tests for namespaced RSS, RDF/RSS 1.0, and Atom feed variants
 - [x] Add regression coverage for prefixed and namespace-declared Atom feed roots
+- [x] Diagnose feed URLs that return valid content but are rejected as unsupported RSS or Atom
+- [x] Handle redirects, content-type variations, HTML wrappers, and additional feed root shapes
+- [x] Add regression tests for wrapped feeds and clear non-feed error messages
+- [x] Resolve YouTube channel page URLs such as https://m.youtube.com/@NASA to the channel’s RSS/Atom feed
+- [x] Add a targeted NASA YouTube channel regression test and verify feed metadata/articles

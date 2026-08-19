@@ -51,6 +51,17 @@ function stripMarkup(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function discoverLinkedFeed(html: string, pageUrl: string): string | null {
+  const links = Array.from(html.matchAll(/<link\b[^>]*>/gi), (match) => match[0]);
+  for (const link of links) {
+    const rel = link.match(/\brel=["']([^"']+)["']/i)?.[1].toLowerCase() ?? "";
+    const type = link.match(/\btype=["']([^"']+)["']/i)?.[1].toLowerCase() ?? "";
+    const href = link.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    if (href && (rel.includes("alternate") || type.includes("rss") || type.includes("atom") || type.includes("xml")) && (type.includes("rss") || type.includes("atom") || type.includes("xml") || /feed|rss|atom/i.test(href))) return absoluteUrl(href, pageUrl);
+  }
+  return null;
+}
+
 function parseDate(value: string): Date | null {
   const date = value ? new Date(value) : null;
   return date && !Number.isNaN(date.getTime()) ? date : null;
@@ -99,12 +110,43 @@ function articleFromItem(raw: unknown, baseUrl: string, atom = false): ParsedArt
   };
 }
 
+async function resolveKnownPageToFeed(url: string): Promise<string> {
+  const page = new URL(url);
+  if (!/(^|\.)youtube\.com$/i.test(page.hostname) || !/^\/(?:@|channel\/|c\/|user\/)/i.test(page.pathname)) return url;
+  try {
+    const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
+    const html = await response.text();
+    const channelId = html.match(/youtube\.com\/channel\/(UC[A-Za-z0-9_-]{20,})/i)?.[1] ?? html.match(/(?:channelId|externalId)["']?\s*[:=]\s*["'](UC[A-Za-z0-9_-]{20,})["']/i)?.[1];
+    if (channelId) return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+  } catch { /* fall through to normal feed parsing */ }
+  return url;
+}
+
+async function fetchFeedResponse(url: string, redirects = 0): Promise<{ response: Response; finalUrl: string }> {
+  if (redirects > 5) throw new Error("Feed redirected too many times");
+  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    if (!location) throw new Error(`Feed returned HTTP ${response.status} without a redirect location`);
+    return fetchFeedResponse(absoluteUrl(location, url), redirects + 1);
+  }
+  return { response, finalUrl: url };
+}
+
 export async function parseFeed(url: string): Promise<ParsedFeed> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "user-agent": "RSS Group Feed/1.0" } });
+  const resolvedUrl = await resolveKnownPageToFeed(url);
+  const { response, finalUrl } = await fetchFeedResponse(resolvedUrl);
   if (!response.ok) throw new Error(`Feed returned HTTP ${response.status}`);
   const xml = await response.text();
   if (xml.length > 8_000_000) throw new Error("Feed is too large to safely parse");
-  const parsed = parser.parse(xml) as Record<string, any>;
+  let parsed: Record<string, any>;
+  try {
+    parsed = parser.parse(xml) as Record<string, any>;
+  } catch (error) {
+    const linkedFeed = discoverLinkedFeed(xml, finalUrl);
+    if (linkedFeed && linkedFeed !== url) return parseFeed(linkedFeed);
+    throw new Error(`Could not parse the feed XML: ${error instanceof Error ? error.message : String(error)}`);
+  }
   const rootKey = Object.keys(parsed).find((key) => ["rss", "rdf", "rdf:rdf", "feed"].includes(key.toLowerCase()) || ["rss", "rdf", "feed"].includes(localName(key)));
   const root = rootKey ? parsed[rootKey] : parsed;
   const channel = childByLocalName(root, "channel");
@@ -112,14 +154,19 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   const rss = channel ?? (atom ? undefined : root);
   const hasRssShape = Boolean(channel || childByLocalName(root, "item"));
   const hasAtomShape = Boolean(atom && childByLocalName(atom, "entry"));
-  if (!hasRssShape && !hasAtomShape) throw new Error("The URL did not return a supported RSS or Atom feed");
-  const base = new URL(url);
+  if (!hasRssShape && !hasAtomShape) {
+    const linkedFeed = discoverLinkedFeed(xml, finalUrl);
+    if (linkedFeed && linkedFeed !== url) return parseFeed(linkedFeed);
+    if (/^\s*<!doctype\s+html|^\s*<html[\s>]/i.test(xml)) throw new Error("This URL returned a web page, not the RSS/Atom feed. Paste the feed URL or use a page with an RSS link.");
+    throw new Error("The URL returned XML, but it was not a recognized RSS or Atom feed");
+  }
+  const base = new URL(finalUrl);
   const rawItems = childByLocalName(rss, "item") ?? childByLocalName(root, "item") ?? childByLocalName(atom, "entry") ?? [];
-  const items = (Array.isArray(rawItems) ? rawItems : [rawItems]).map((item) => articleFromItem(item, url, Boolean(atom))).filter((item) => item.link);
+  const items = (Array.isArray(rawItems) ? rawItems : [rawItems]).map((item) => articleFromItem(item, finalUrl, Boolean(atom))).filter((item) => item.link);
   return {
     title: asText(first(childByLocalName(rss, "title") ?? childByLocalName(atom, "title"))) || base.hostname,
     description: (asText(first(childByLocalName(rss, "description") ?? childByLocalName(atom, "subtitle"))) || null),
-    faviconUrl: await discoverFavicon(url),
+    faviconUrl: await discoverFavicon(finalUrl),
     articles: items.slice(0, 100),
   };
 }

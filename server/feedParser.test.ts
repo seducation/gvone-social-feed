@@ -27,6 +27,51 @@ describe("parseFeed", () => {
     expect(result.articles[0]?.title).toBe("Namespaced story");
   });
 
+  it("resolves a YouTube @channel page to its channel feed", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(`<html><link rel="canonical" href="https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ" /></html>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>NASA</title><entry><id>yt:video:abc</id><title>NASA story</title><link href="https://www.youtube.com/watch?v=abc"/><updated>2026-08-19T08:00:00Z</updated></entry></feed>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await parseFeed("https://m.youtube.com/@NASA");
+    expect(result.title).toBe("NASA");
+    expect(result.articles[0]?.title).toBe("NASA story");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("feeds/videos.xml?channel_id=UCLA_DiR1FfKNvjuUpBHmylQ");
+  });
+
+  it("follows redirects to the final feed URL", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/final.xml" } }))
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss><channel><title>Redirected Feed</title><item><title>Redirected story</title><link>https://example.com/redirected</link></item></channel></rss>`, { status: 200, headers: { "content-type": "text/plain" } }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/start");
+    expect(result.title).toBe("Redirected Feed");
+    expect(result.articles[0]?.title).toBe("Redirected story");
+  });
+
+  it("parses valid XML even when the server uses a nonstandard content type", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss><channel><title>Plain Text Feed</title><item><title>Plain text story</title><link>https://example.com/plain</link></item></channel></rss>`, { status: 200, headers: { "content-type": "text/plain" } }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/plain-feed");
+    expect(result.title).toBe("Plain Text Feed");
+  });
+
+  it("discovers an RSS feed linked from a web page", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(`<html><head><link rel="alternate" type="application/rss+xml" href="/news.xml" /></head></html>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><rss><channel><title>Linked News</title><item><title>Linked story</title><link>https://example.com/story</link></item></channel></rss>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<html><head></head></html>`, { status: 200 })));
+    const result = await parseFeed("https://example.com/news");
+    expect(result.title).toBe("Linked News");
+    expect(result.articles[0]?.title).toBe("Linked story");
+  });
+
+  it("explains when a URL returns an ordinary web page without a feed link", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(`<!doctype html><html><head><title>Website</title></head><body>Welcome</body></html>`, { status: 200 })));
+    await expect(parseFeed("https://example.com/website")).rejects.toThrow("web page, not the RSS/Atom feed");
+  });
+
   it("supports prefixed Atom feed roots", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(`<?xml version="1.0"?><atom:feed xmlns:atom="http://www.w3.org/2005/Atom"><atom:title>Prefixed Atom</atom:title><atom:entry><atom:id>tag:example.com,2026:2</atom:id><atom:title>Prefixed story</atom:title><atom:link href="https://example.com/prefixed"/><atom:updated>2026-08-19T08:00:00Z</atom:updated><atom:summary>Atom summary</atom:summary></atom:entry></atom:feed>`, { status: 200 }))
