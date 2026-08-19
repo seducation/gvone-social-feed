@@ -14,12 +14,14 @@ const mocks = vi.hoisted(() => ({
     feeds: [
       { id: 7, title: "NASA", customTitle: null, faviconUrl: null, url: "https://m.youtube.com/@NASA" },
       { id: 8, title: "Technology", customTitle: null, faviconUrl: null, url: "https://www.reddit.com/r/technology/.rss" },
+      { id: 9, title: "CNN World", customTitle: null, faviconUrl: null, url: "https://rss.cnn.com/rss/edition_world.rss" },
     ],
     groups: [],
   },
   allArticles: [
     { id: 1, feedId: 7, title: "NASA update", link: "https://example.com/nasa", description: null, publishedAt: new Date("2026-08-19T08:00:00Z"), thumbnailUrl: null, videoUrl: null },
     { id: 2, feedId: 8, title: "Reddit update", link: "https://example.com/reddit", description: null, publishedAt: new Date("2026-08-19T07:00:00Z"), thumbnailUrl: null, videoUrl: null },
+    { id: 3, feedId: 9, title: "CNN update", link: "https://example.com/cnn", description: null, publishedAt: new Date("2026-08-19T06:00:00Z"), thumbnailUrl: null, videoUrl: null },
   ],
 }));
 
@@ -89,6 +91,17 @@ describe("dashboard reload refresh controls", () => {
     await waitFor(() => expect(screen.getByText("NASA update")).toBeTruthy());
     expect(screen.queryByText("Reddit update")).toBeNull();
     expect(screen.getByText("Channel roll call")).toBeTruthy();
+  });
+
+  it("creates a dedicated CNN domain channel rather than merging it into a generic website tab", async () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show CNN" }));
+
+    await waitFor(() => expect(screen.getByText("CNN update")).toBeTruthy());
+    expect(screen.queryByText("NASA update")).toBeNull();
+    expect(screen.queryByText("Reddit update")).toBeNull();
+    expect(screen.getByText(/Stories from your saved CNN feeds/)).toBeTruthy();
   });
 
   it("keeps the source tabs horizontally scrollable and selectable on a narrow screen", async () => {

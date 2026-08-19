@@ -78,3 +78,8 @@
 - [x] Add source-category filtering regression coverage for the community navigation
 - [x] Add narrow-screen regression coverage for horizontal source-tab accessibility and selection
 - [x] Push the current Signalflow project source to https://github.com/seducation/gvone-social-feed.git
+- [x] Replace the single Web source tab with domain-based source channels such as CNN and The New York Times
+- [x] Preserve YouTube and Reddit community channels while filtering stories by the selected source domain
+- [x] Diagnose why scheduled RSS refreshes update only part of the user’s library
+- [x] Make scheduled and manual refreshes complete across all saved feeds with clear partial-failure reporting
+- [x] Add domain-channel and refresh-completion regression coverage

@@ -3,7 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { feedErrorMessage } from "@/lib/feedError";
 import { shouldStartPageLoadRefresh } from "@/lib/dashboardRefresh";
-import { filterArticlesForSourceCategory, getSourceCategory, sourceCategoryDetails, type SourceCategory } from "@/lib/sourceCategories";
+import { buildSourceChannels, filterArticlesForSourceChannel, type SourceChannelKey, type SourceChannelKind } from "@/lib/sourceCategories";
 import { startLogin } from "@/const";
 import { toast } from "sonner";
 import { ArrowUpRight, Bookmark, Check, ChevronDown, Compass, Globe2, Hash, Layers3, Loader2, LogOut, Megaphone, MoreHorizontal, Plus, Radio, RefreshCw, Rss, Search, Settings2, SlidersHorizontal, Sparkles, Trash2, Video, X, Youtube } from "lucide-react";
@@ -20,19 +20,24 @@ function favicon(url: string | null) {
   return url || "https://www.google.com/s2/favicons?domain=rss.app&sz=64";
 }
 
-const categoryOrder: SourceCategory[] = ["all", "youtube", "reddit", "website"];
-
-function CategoryIcon({ category, className }: { category: SourceCategory; className?: string }) {
-  if (category === "youtube") return <Youtube className={className} />;
-  if (category === "reddit") return <Radio className={className} />;
-  if (category === "website") return <Globe2 className={className} />;
+function ChannelIcon({ kind, className }: { kind: SourceChannelKind; className?: string }) {
+  if (kind === "youtube") return <Youtube className={className} />;
+  if (kind === "reddit") return <Radio className={className} />;
+  if (kind === "domain") return <Globe2 className={className} />;
   return <Compass className={className} />;
+}
+
+function channelTint(kind: SourceChannelKind) {
+  if (kind === "youtube") return "bg-[#ffefef] text-[#e84b4b]";
+  if (kind === "reddit") return "bg-[#fff0e8] text-[#ee7240]";
+  if (kind === "domain") return "bg-[#eaf5ff] text-[#377ab5]";
+  return "bg-[#eeedff] text-[#635bff]";
 }
 
 export default function Home() {
   const auth = useAuth();
   const [activeGroup, setActiveGroup] = useState<number | null>(null);
-  const [activeCategory, setActiveCategory] = useState<SourceCategory>("all");
+  const [activeCategory, setActiveCategory] = useState<SourceChannelKey>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [showAssign, setShowAssign] = useState<number | null>(null);
@@ -41,11 +46,11 @@ export default function Home() {
   const [groupName, setGroupName] = useState("");
   const [didRefreshOnLoad, setDidRefreshOnLoad] = useState(false);
   const utils = trpc.useUtils();
-  const dashboard = trpc.dashboard.useQuery(undefined, { enabled: auth.isAuthenticated });
+  const dashboard = trpc.dashboard.useQuery(undefined, { enabled: auth.isAuthenticated, refetchInterval: 60_000 });
   const feeds = dashboard.data?.feeds ?? [];
   const groups = dashboard.data?.groups ?? [];
   const groupArticles = trpc.group.articles.useQuery({ id: activeGroup ?? 0 }, { enabled: Boolean(activeGroup) });
-  const allArticles = trpc.feed.articles.useQuery(undefined, { enabled: auth.isAuthenticated });
+  const allArticles = trpc.feed.articles.useQuery(undefined, { enabled: auth.isAuthenticated, refetchInterval: 60_000 });
 
   const addFeed = trpc.feed.add.useMutation({
     onSuccess: () => {
@@ -87,7 +92,10 @@ export default function Home() {
   const refreshAllFeeds = trpc.feed.refreshAll.useMutation({
     onSuccess: async (data) => {
       await Promise.all([utils.dashboard.invalidate(), utils.feed.articles.invalidate(), utils.group.articles.invalidate()]);
-      if (data.attempted) toast.success(`Updated ${data.refreshed} of ${data.attempted} sources`);
+      if (data.attempted) {
+        if (data.failed) toast.error(`Updated ${data.refreshed} of ${data.attempted} sources. ${data.failed} need attention.`);
+        else toast.success(`Updated ${data.refreshed} of ${data.attempted} sources`);
+      }
     },
     onError: (error) => toast.error(feedErrorMessage(error)),
   });
@@ -104,13 +112,14 @@ export default function Home() {
   const assignment = trpc.assignment.list.useQuery({ groupId: showAssign ?? 0 }, { enabled: Boolean(showAssign) });
   const setAssignment = trpc.assignment.set.useMutation({ onSuccess: () => { assignment.refetch(); toast.success("Collection updated"); }, onError: (error) => toast.error(error.message) });
 
+  const sourceChannels = useMemo(() => buildSourceChannels(feeds), [feeds]);
+  const activeChannel = sourceChannels.find((channel) => channel.key === activeCategory) ?? sourceChannels[0];
   const baseArticles = activeGroup ? groupArticles.data ?? [] : allArticles.data ?? [];
-  const visibleArticles = useMemo(() => filterArticlesForSourceCategory(baseArticles, feeds, activeCategory), [baseArticles, feeds, activeCategory]);
+  const visibleArticles = useMemo(() => activeGroup ? baseArticles : filterArticlesForSourceChannel(baseArticles, activeChannel), [activeGroup, activeChannel, baseArticles]);
   const sourceCount = useMemo(() => new Set(visibleArticles.map((article) => article.feedId)).size, [visibleArticles]);
-  const categoryFeeds = useMemo(() => feeds.filter((feed) => activeCategory === "all" || getSourceCategory(feed.url) === activeCategory), [feeds, activeCategory]);
-  const categoryCounts = useMemo(() => Object.fromEntries(categoryOrder.map((category) => [category, category === "all" ? feeds.length : feeds.filter((feed) => getSourceCategory(feed.url) === category).length])) as Record<SourceCategory, number>, [feeds]);
-  const activeLabel = activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? "Collection" : sourceCategoryDetails[activeCategory].label;
-  const activeDescription = activeGroup ? "A focused collection from your private signal." : activeCategory === "all" ? "Every source in your private library." : `Every saved ${sourceCategoryDetails[activeCategory].label.toLowerCase()} in one channel.`;
+  const categoryFeeds = useMemo(() => feeds.filter((feed) => activeChannel?.feedIds.includes(feed.id)), [activeChannel, feeds]);
+  const activeLabel = activeGroup ? groups.find((group) => group.id === activeGroup)?.name ?? "Collection" : activeChannel?.label ?? "All signals";
+  const activeDescription = activeGroup ? "A focused collection from your private signal." : activeChannel?.description ?? "Every source in your private library.";
 
   useEffect(() => {
     if (!shouldStartPageLoadRefresh({ isAuthenticated: auth.isAuthenticated, isDashboardLoading: dashboard.isLoading, hasRefreshedOnLoad: didRefreshOnLoad, feedCount: feeds.length })) return;
@@ -118,7 +127,7 @@ export default function Home() {
     refreshAllFeeds.mutate();
   }, [auth.isAuthenticated, dashboard.isLoading, didRefreshOnLoad, feeds.length, refreshAllFeeds]);
 
-  const selectCategory = (category: SourceCategory) => {
+  const selectCategory = (category: SourceChannelKey) => {
     setActiveGroup(null);
     setActiveCategory(category);
   };
@@ -140,11 +149,11 @@ export default function Home() {
 
     <section className="sticky top-[76px] z-20 border-b border-[#e6e8ed] bg-[#f7f8fa]/95 px-4 py-3 backdrop-blur-xl sm:px-8">
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Source category tabs">
-        {categoryOrder.map((category) => {
-          const selected = !activeGroup && activeCategory === category;
-          return <button key={category} type="button" onClick={() => selectCategory(category)} aria-label={`Show ${sourceCategoryDetails[category].label}`} aria-pressed={selected} className={`group flex min-w-[86px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition ${selected ? "bg-[#14161a] text-white shadow-[0_10px_20px_rgba(24,22,32,.16)]" : "text-[#657080] hover:bg-white"}`}>
-            <span className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-white/12 text-white" : category === "youtube" ? "bg-[#ffefef] text-[#e84b4b]" : category === "reddit" ? "bg-[#fff0e8] text-[#ee7240]" : category === "website" ? "bg-[#eaf5ff] text-[#377ab5]" : "bg-[#eeedff] text-[#635bff]"}`}><CategoryIcon category={category} className="h-4 w-4" /></span>
-            <span className="max-w-[82px] truncate text-[11px] font-semibold">{sourceCategoryDetails[category].shortLabel}</span><span className={`text-[10px] ${selected ? "text-white/55" : "text-[#a0a8b5]"}`}>{categoryCounts[category]} source{categoryCounts[category] === 1 ? "" : "s"}</span>
+        {sourceChannels.map((channel) => {
+          const selected = !activeGroup && activeCategory === channel.key;
+          return <button key={channel.key} type="button" onClick={() => selectCategory(channel.key)} aria-label={`Show ${channel.label}`} aria-pressed={selected} className={`group flex min-w-[86px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition ${selected ? "bg-[#14161a] text-white shadow-[0_10px_20px_rgba(24,22,32,.16)]" : "text-[#657080] hover:bg-white"}`}>
+            <span className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-white/12 text-white" : channelTint(channel.kind)}`}><ChannelIcon kind={channel.kind} className="h-4 w-4" /></span>
+            <span className="max-w-[82px] truncate text-[11px] font-semibold">{channel.shortLabel}</span><span className={`text-[10px] ${selected ? "text-white/55" : "text-[#a0a8b5]"}`}>{channel.feedIds.length} source{channel.feedIds.length === 1 ? "" : "s"}</span>
           </button>;
         })}
         <button type="button" onClick={() => setShowAdd(true)} aria-label="Add a source" className="flex min-w-[86px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2 text-[#697281] transition hover:bg-white"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[#635bff] shadow-sm"><Plus className="h-4 w-4" /></span><span className="text-[11px] font-semibold">Add source</span><span className="text-[10px] text-[#a0a8b5]">New channel</span></button>
@@ -159,18 +168,18 @@ export default function Home() {
         <div className="mt-7 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/40"><span>Collections</span><button type="button" onClick={() => setShowGroups(true)} aria-label="Create collection" className="text-white/55 hover:text-white"><Plus className="h-4 w-4" /></button></div>
         <div className="mt-2 space-y-1">{groups.length ? groups.map((group) => <div key={group.id} className="group flex items-center gap-1"><button type="button" onClick={() => { setActiveGroup(group.id); setActiveCategory("all"); }} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${activeGroup === group.id ? "bg-white/12 font-semibold text-white" : "text-white/55 hover:bg-white/7 hover:text-white"}`}><Layers3 className="h-4 w-4 shrink-0" /><span className="truncate">{group.name}</span></button><button type="button" onClick={() => setShowAssign(group.id)} aria-label={`Manage ${group.name}`} className="hidden rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white group-hover:block"><SlidersHorizontal className="h-3.5 w-3.5" /></button></div>) : <p className="px-3 py-2 text-xs leading-5 text-white/35">Create a collection to combine related channels.</p>}</div>
         <div className="mt-7 px-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/40">Source channels</div>
-        <div className="mt-2 space-y-1">{categoryOrder.slice(1).map((category) => <button key={category} type="button" onClick={() => selectCategory(category)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${!activeGroup && activeCategory === category ? "bg-white/12 font-semibold text-white" : "text-white/55 hover:bg-white/7 hover:text-white"}`}><CategoryIcon category={category} className="h-4 w-4" /><span>{sourceCategoryDetails[category].shortLabel}</span><span className="ml-auto text-xs text-white/35">{categoryCounts[category]}</span></button>)}</div>
+        <div className="mt-2 space-y-1">{sourceChannels.slice(1).map((channel) => <button key={channel.key} type="button" onClick={() => selectCategory(channel.key)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${!activeGroup && activeCategory === channel.key ? "bg-white/12 font-semibold text-white" : "text-white/55 hover:bg-white/7 hover:text-white"}`}><ChannelIcon kind={channel.kind} className="h-4 w-4" /><span className="truncate">{channel.shortLabel}</span><span className="ml-auto text-xs text-white/35">{channel.feedIds.length}</span></button>)}</div>
         <div className="mt-7 px-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/40">In this space</div>
         <div className="mt-2 space-y-1">{categoryFeeds.length ? categoryFeeds.map((feed) => <div key={feed.id} className="group flex items-center gap-2 rounded-xl px-3 py-2.5 transition hover:bg-white/7"><img src={favicon(feed.faviconUrl)} alt="" className="h-5 w-5 rounded-md" onError={(event) => { event.currentTarget.src = favicon(null); }} /><span className="min-w-0 flex-1 truncate text-sm text-white/60">{feed.customTitle || feed.title}</span><button type="button" onClick={() => refreshFeed.mutate({ id: feed.id })} aria-label={`Refresh ${feed.customTitle || feed.title}`} className="hidden text-white/40 hover:text-white group-hover:block"><RefreshCw className="h-3.5 w-3.5" /></button></div>) : <p className="px-3 py-2 text-xs leading-5 text-white/35">No sources in this channel yet.</p>}</div>
       </aside>
 
       <main className="min-w-0 px-5 py-8 sm:px-8">
-        <div className="mb-7 flex items-end justify-between gap-4"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-[#9ba2ae]"><span className="h-2 w-2 rounded-full bg-[#24c1b0]" /> Community feed</div><div className="flex flex-wrap items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-2xl ${activeCategory === "youtube" ? "bg-[#ffefef] text-[#e84b4b]" : activeCategory === "reddit" ? "bg-[#fff0e8] text-[#ee7240]" : activeCategory === "website" ? "bg-[#eaf5ff] text-[#377ab5]" : "bg-[#eeedff] text-[#635bff]"}`}><CategoryIcon category={activeCategory} className="h-5 w-5" /></span><h1 className="text-3xl font-semibold tracking-[-.045em]">{activeLabel}</h1></div><p className="mt-3 text-sm text-[#8a929f]">{activeDescription} {sourceCount ? `${sourceCount} active source${sourceCount === 1 ? "" : "s"} · newest first` : ""}</p></div><button type="button" onClick={() => activeGroup ? refreshGroup.mutate({ id: activeGroup }) : refreshAllFeeds.mutate()} disabled={refreshAllFeeds.isPending || refreshGroup.isPending} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2 text-xs font-semibold text-[#68707d] transition hover:border-[#635bff] hover:text-[#635bff] disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${refreshAllFeeds.isPending || refreshGroup.isPending ? "animate-spin" : ""}`} /> Refresh</button></div>
-        <div className="mb-6 rounded-[1.5rem] border border-[#e7e9ee] bg-white p-4 shadow-[0_8px_25px_rgba(24,31,45,.03)]"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-semibold"><Megaphone className="h-4 w-4 text-[#635bff]" /> {activeCategory === "youtube" ? "Channel roll call" : activeCategory === "reddit" ? "Community roll call" : "Source roll call"}</div><span className="rounded-full bg-[#f3f2ff] px-2.5 py-1 text-xs font-semibold text-[#635bff]">{categoryFeeds.length} joined</span></div><div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{categoryFeeds.map((feed) => <div key={feed.id} className="flex min-w-[140px] items-center gap-2 rounded-xl bg-[#f7f8fa] px-3 py-2"><img src={favicon(feed.faviconUrl)} alt="" className="h-6 w-6 rounded-lg" onError={(event) => { event.currentTarget.src = favicon(null); }} /><span className="truncate text-xs font-semibold text-[#596270]">{feed.customTitle || feed.title}</span></div>)}{!categoryFeeds.length && <span className="text-sm text-[#8a929f]">Add a feed to populate this private channel.</span>}</div></div>
+        <div className="mb-7 flex items-end justify-between gap-4"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-[#9ba2ae]"><span className="h-2 w-2 rounded-full bg-[#24c1b0]" /> Community feed</div><div className="flex flex-wrap items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-2xl ${channelTint(activeChannel?.kind ?? "all")}`}><ChannelIcon kind={activeChannel?.kind ?? "all"} className="h-5 w-5" /></span><h1 className="text-3xl font-semibold tracking-[-.045em]">{activeLabel}</h1></div><p className="mt-3 text-sm text-[#8a929f]">{activeDescription} {sourceCount ? `${sourceCount} active source${sourceCount === 1 ? "" : "s"} · newest first` : ""}</p></div><button type="button" onClick={() => activeGroup ? refreshGroup.mutate({ id: activeGroup }) : refreshAllFeeds.mutate()} disabled={refreshAllFeeds.isPending || refreshGroup.isPending} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2 text-xs font-semibold text-[#68707d] transition hover:border-[#635bff] hover:text-[#635bff] disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${refreshAllFeeds.isPending || refreshGroup.isPending ? "animate-spin" : ""}`} /> Refresh</button></div>
+        <div className="mb-6 rounded-[1.5rem] border border-[#e7e9ee] bg-white p-4 shadow-[0_8px_25px_rgba(24,31,45,.03)]"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-semibold"><Megaphone className="h-4 w-4 text-[#635bff]" /> {activeChannel?.kind === "youtube" ? "Channel roll call" : activeChannel?.kind === "reddit" ? "Community roll call" : "Source roll call"}</div><span className="rounded-full bg-[#f3f2ff] px-2.5 py-1 text-xs font-semibold text-[#635bff]">{categoryFeeds.length} joined</span></div><div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{categoryFeeds.map((feed) => <div key={feed.id} className="flex min-w-[140px] items-center gap-2 rounded-xl bg-[#f7f8fa] px-3 py-2"><img src={favicon(feed.faviconUrl)} alt="" className="h-6 w-6 rounded-lg" onError={(event) => { event.currentTarget.src = favicon(null); }} /><span className="truncate text-xs font-semibold text-[#596270]">{feed.customTitle || feed.title}</span></div>)}{!categoryFeeds.length && <span className="text-sm text-[#8a929f]">Add a feed to populate this private channel.</span>}</div></div>
         {visibleArticles.length === 0 ? <div className="rounded-[1.5rem] border border-dashed border-[#d9dde5] bg-white/50 p-12 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#eeedff] text-[#635bff]"><Layers3 className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">No stories in this channel yet</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#8a929f]">Add a matching source or choose another community channel to continue reading.</p><button type="button" onClick={() => setShowAdd(true)} className="mt-6 rounded-full bg-[#14161a] px-5 py-2.5 text-sm font-semibold text-white">Add source</button></div> : <div className="space-y-4">{visibleArticles.map((article) => { const feed = feeds.find((item) => item.id === article.feedId); return <article key={article.id} className="group overflow-hidden rounded-[1.35rem] border border-[#e7e9ee] bg-white shadow-[0_8px_25px_rgba(24,31,45,.03)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(24,31,45,.08)]"><div className="p-5 sm:p-6"><div className="mb-4 flex items-center gap-3"><img src={favicon(feed?.faviconUrl ?? null)} alt="" className="h-8 w-8 rounded-xl" onError={(event) => { event.currentTarget.src = favicon(null); }} /><div className="min-w-0"><div className="truncate text-xs font-semibold text-[#555e6b]">{feed?.customTitle || feed?.title || "RSS source"}</div><div className="mt-0.5 text-xs text-[#a0a7b2]">{formatDate(article.publishedAt)}</div></div><button type="button" aria-label="Bookmark story" className="ml-auto rounded-lg p-2 text-[#b2b8c2] transition hover:bg-[#f4f5f8] hover:text-[#635bff]"><Bookmark className="h-4 w-4" /></button><button type="button" aria-label="More story options" className="rounded-lg p-2 text-[#b2b8c2] transition hover:bg-[#f4f5f8] hover:text-[#635bff]"><MoreHorizontal className="h-4 w-4" /></button></div><a href={article.link} target="_blank" rel="noreferrer" className="block"><h2 className="text-xl font-semibold leading-snug tracking-[-.025em] transition group-hover:text-[#635bff]">{article.title}</h2>{article.description && <p className="mt-3 text-sm leading-6 text-[#68707d]">{article.description}</p>}{article.thumbnailUrl && <img src={article.thumbnailUrl} alt="" className="mt-5 max-h-72 w-full rounded-2xl object-cover" loading="lazy" />}</a>{article.videoUrl && <div className="mt-5 overflow-hidden rounded-2xl bg-black"><video controls playsInline preload="metadata" className="max-h-96 w-full" src={article.videoUrl} poster={article.thumbnailUrl ?? undefined}><track kind="captions" /></video><div className="flex items-center gap-2 px-4 py-3 text-xs text-white/70"><Video className="h-3.5 w-3.5" /> Inline video from this feed</div></div>}<div className="mt-5 flex items-center justify-between border-t border-[#f0f1f4] pt-4"><span className="text-xs font-medium text-[#a0a7b2]">Open original story</span><ArrowUpRight className="h-4 w-4 text-[#a0a7b2] transition group-hover:text-[#635bff]" /></div></div></article>; })}</div>}
       </main>
 
-      <aside className="hidden border-l border-[#e6e8ed] px-5 py-8 xl:block"><div className="rounded-[1.5rem] bg-[#14161a] p-5 text-white"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-white/50"><Sparkles className="h-3.5 w-3.5 text-[#ffcc82]" /> Signal notes</div><p className="mt-5 text-lg font-semibold leading-7">Each source type has its own space.</p><p className="mt-3 text-sm leading-6 text-white/55">Switch channels to move between YouTube, Reddit, and the web without losing your private library.</p></div><div className="mt-6 rounded-[1.5rem] border border-[#e5e8ed] bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm font-semibold">Your community</span><Settings2 className="h-4 w-4 text-[#a0a7b2]" /></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-[#f5f6f8] p-3"><div className="text-2xl font-semibold">{feeds.length}</div><div className="mt-1 text-xs text-[#8a929f]">Sources</div></div><div className="rounded-2xl bg-[#f5f6f8] p-3"><div className="text-2xl font-semibold">{groups.length}</div><div className="mt-1 text-xs text-[#8a929f]">Collections</div></div></div></div><div className="mt-6 rounded-[1.5rem] border border-[#e5e8ed] bg-white p-5"><div className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#9ba2ae]">Channel mix</div><div className="mt-4 space-y-3">{categoryOrder.slice(1).map((category) => <button key={category} type="button" onClick={() => selectCategory(category)} className="flex w-full items-center gap-3 text-left"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#f4f5f8] text-[#635bff]"><CategoryIcon category={category} className="h-4 w-4" /></span><span className="flex-1 text-sm font-medium text-[#657080]">{sourceCategoryDetails[category].shortLabel}</span><span className="text-xs font-semibold text-[#a0a8b5]">{categoryCounts[category]}</span></button>)}</div></div></aside>
+      <aside className="hidden border-l border-[#e6e8ed] px-5 py-8 xl:block"><div className="rounded-[1.5rem] bg-[#14161a] p-5 text-white"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-white/50"><Sparkles className="h-3.5 w-3.5 text-[#ffcc82]" /> Signal notes</div><p className="mt-5 text-lg font-semibold leading-7">Each source domain has its own space.</p><p className="mt-3 text-sm leading-6 text-white/55">Switch between YouTube, Reddit, CNN, New York Times, and other source domains without losing your private library.</p></div><div className="mt-6 rounded-[1.5rem] border border-[#e5e8ed] bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm font-semibold">Your community</span><Settings2 className="h-4 w-4 text-[#a0a7b2]" /></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-[#f5f6f8] p-3"><div className="text-2xl font-semibold">{feeds.length}</div><div className="mt-1 text-xs text-[#8a929f]">Sources</div></div><div className="rounded-2xl bg-[#f5f6f8] p-3"><div className="text-2xl font-semibold">{groups.length}</div><div className="mt-1 text-xs text-[#8a929f]">Collections</div></div></div></div><div className="mt-6 rounded-[1.5rem] border border-[#e5e8ed] bg-white p-5"><div className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#9ba2ae]">Channel mix</div><div className="mt-4 space-y-3">{sourceChannels.slice(1).map((channel) => <button key={channel.key} type="button" onClick={() => selectCategory(channel.key)} className="flex w-full items-center gap-3 text-left"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#f4f5f8] text-[#635bff]"><ChannelIcon kind={channel.kind} className="h-4 w-4" /></span><span className="flex-1 truncate text-sm font-medium text-[#657080]">{channel.shortLabel}</span><span className="text-xs font-semibold text-[#a0a8b5]">{channel.feedIds.length}</span></button>)}</div></div></aside>
     </div>
 
     <div className="fixed right-4 top-[160px] z-30 flex flex-col overflow-hidden rounded-2xl border border-[#e1e4ea] bg-white/95 shadow-[0_12px_30px_rgba(24,31,45,.12)] backdrop-blur sm:right-6" aria-label="Feed controls"><button type="button" onClick={() => refreshAllFeeds.mutate()} disabled={refreshAllFeeds.isPending || feeds.length === 0} title="Refresh all feeds" aria-label="Refresh all feeds" className="grid h-11 w-11 place-items-center text-[#68707d] transition hover:bg-[#f5f4ff] hover:text-[#635bff] disabled:cursor-not-allowed disabled:opacity-45"><RefreshCw className={`h-4 w-4 ${refreshAllFeeds.isPending ? "animate-spin" : ""}`} /></button><span className="mx-2 h-px bg-[#eceef2]" /><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Scroll to top of feed" aria-label="Scroll to top of feed" className="grid h-11 w-11 place-items-center text-[#68707d] transition hover:bg-[#f5f4ff] hover:text-[#635bff]"><ChevronDown className="h-5 w-5 -rotate-180" /></button></div>

@@ -30,7 +30,7 @@ describe("feed.refreshAll", () => {
     });
     vi.mocked(saveParsedFeed).mockResolvedValue(undefined as never);
 
-    await expect(appRouter.createCaller(createContext()).feed.refreshAll()).resolves.toEqual({ attempted: 2, refreshed: 1 });
+    await expect(appRouter.createCaller(createContext()).feed.refreshAll()).resolves.toEqual({ attempted: 2, refreshed: 1, failed: 1, failures: [{ feedId: 2, message: "Source unavailable" }] });
     expect(parseFeed).toHaveBeenCalledTimes(2);
     expect(saveParsedFeed).toHaveBeenCalledWith(42, 1, expect.anything());
   });

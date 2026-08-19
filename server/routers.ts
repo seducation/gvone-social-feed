@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { feedGroups, rssFeeds, rssGroups } from "../drizzle/schema";
 import { assignFeed, getDb, getFeed, getGroup, groupFeedIds, listArticlesForFeeds, listFeeds, listGroups, saveParsedFeed, unassignFeed } from "./db";
 import { parseFeed } from "./feedParser";
+import { refreshFeedBatch } from "./rssRefresh";
 
 function normalizeFeedImportError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -45,8 +46,7 @@ export const appRouter = router({
     refresh: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ ctx, input }) => refreshOwnedFeed(ctx.user.id, input.id)),
     refreshAll: protectedProcedure.mutation(async ({ ctx }) => {
       const feeds = await listFeeds(ctx.user.id);
-      const results = await Promise.allSettled(feeds.map((feed) => refreshOwnedFeed(ctx.user.id, feed.id)));
-      return { attempted: results.length, refreshed: results.filter((result) => result.status === "fulfilled").length };
+      return refreshFeedBatch(feeds);
     }),
     remove: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" }); const feed = await getFeed(ctx.user.id, input.id); if (!feed) throw new TRPCError({ code: "NOT_FOUND" }); await db.delete(feedGroups).where(eq(feedGroups.feedId, input.id)); await db.delete(rssFeeds).where(and(eq(rssFeeds.id, input.id), eq(rssFeeds.userId, ctx.user.id))); return { success: true }; }),
   }),
@@ -56,7 +56,7 @@ export const appRouter = router({
     rename: protectedProcedure.input(z.object({ id: z.number().positive(), name: z.string().trim().min(1).max(160) })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db || !(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); await db.update(rssGroups).set({ name: input.name }).where(and(eq(rssGroups.id, input.id), eq(rssGroups.userId, ctx.user.id))); return { success: true }; }),
     delete: protectedProcedure.input(z.object({ id: z.number().positive() })).mutation(async ({ ctx, input }) => { const db = await getDb(); if (!db || !(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); await db.delete(feedGroups).where(eq(feedGroups.groupId, input.id)); await db.delete(rssGroups).where(and(eq(rssGroups.id, input.id), eq(rssGroups.userId, ctx.user.id))); return { success: true }; }),
     articles: protectedProcedure.input(z.object({ id: z.number().positive() })).query(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = await groupFeedIds(ctx.user.id, input.id); return listArticlesForFeeds(ids); }),
-    refresh: protectedProcedure.input(z.object({ id: z.number().positive() })).mutation(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = await groupFeedIds(ctx.user.id, input.id); const results = await Promise.allSettled(ids.map((id) => refreshOwnedFeed(ctx.user.id, id))); return { refreshed: results.filter((result) => result.status === "fulfilled").length }; }),
+    refresh: protectedProcedure.input(z.object({ id: z.number().positive() })).mutation(async ({ ctx, input }) => { if (!(await getGroup(ctx.user.id, input.id))) throw new TRPCError({ code: "NOT_FOUND" }); const ids = new Set(await groupFeedIds(ctx.user.id, input.id)); return refreshFeedBatch((await listFeeds(ctx.user.id)).filter((feed) => ids.has(feed.id))); }),
   }),
   assignment: router({
     list: protectedProcedure.input(z.object({ groupId: z.number().positive() })).query(({ ctx, input }) => groupFeedIds(ctx.user.id, input.groupId)),

@@ -2,21 +2,43 @@ import { rssFeeds } from "../drizzle/schema";
 import { getDb, saveParsedFeed } from "./db";
 import { parseFeed } from "./feedParser";
 
-export async function refreshAllFeeds() {
-  const db = await getDb();
-  if (!db) return { refreshed: 0, failed: 0 };
-  const feeds = await db.select().from(rssFeeds);
+type RefreshableFeed = { id: number; userId: number; url: string };
+
+export type RefreshSummary = {
+  attempted: number;
+  refreshed: number;
+  failed: number;
+  failures: Array<{ feedId: number; message: string }>;
+};
+
+export async function refreshFeedBatch(feeds: RefreshableFeed[], concurrency = 3): Promise<RefreshSummary> {
+  const failures: RefreshSummary["failures"] = [];
   let refreshed = 0;
-  let failed = 0;
-  for (const feed of feeds) {
-    try {
-      const parsed = await parseFeed(feed.url);
-      await saveParsedFeed(feed.userId, feed.id, parsed);
-      refreshed += 1;
-    } catch (error) {
-      failed += 1;
-      console.warn(`[RSS refresh] ${feed.url}`, error);
+  let cursor = 0;
+  const workerCount = Math.min(Math.max(concurrency, 1), feeds.length);
+
+  async function refreshNext() {
+    while (cursor < feeds.length) {
+      const feed = feeds[cursor++];
+      try {
+        const parsed = await parseFeed(feed.url);
+        await saveParsedFeed(feed.userId, feed.id, parsed);
+        refreshed += 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push({ feedId: feed.id, message: message || "Could not refresh source" });
+        console.warn(`[RSS refresh] ${feed.url}`, error);
+      }
     }
   }
-  return { refreshed, failed };
+
+  await Promise.all(Array.from({ length: workerCount }, () => refreshNext()));
+  return { attempted: feeds.length, refreshed, failed: failures.length, failures };
+}
+
+export async function refreshAllFeeds(): Promise<RefreshSummary> {
+  const db = await getDb();
+  if (!db) return { attempted: 0, refreshed: 0, failed: 0, failures: [] };
+  const feeds = await db.select().from(rssFeeds);
+  return refreshFeedBatch(feeds);
 }
