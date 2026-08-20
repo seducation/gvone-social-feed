@@ -345,3 +345,4 @@
 - [x] Render owner-only private RSS labels as distinct pill-shaped tags in the reader
 - [x] Move the Profile post composer plus icon from the top-left to the top-right of the Profile header
 - [x] Remove the word "Private" from owner-only RSS label pills while retaining pill styling
+- [x] Show the user’s Profile post total in the Profile summary card

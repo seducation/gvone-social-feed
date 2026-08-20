@@ -23,6 +23,7 @@ describe("compact profile activity", () => {
 
   it("renders every user contribution in a compact mixed Overview grid", () => {
     render(<Profile />);
+    expect(screen.getByText("1 Profile post")).toBeTruthy();
     const grid = screen.getByTestId("profile-overview-grid");
     expect(grid.className).toContain("grid-cols-2");
     expect(screen.getByTestId("profile-overview-column-0").querySelectorAll("a")).toHaveLength(3);
