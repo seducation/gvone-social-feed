@@ -583,7 +583,12 @@ describe("dashboard reload refresh controls", () => {
 
     try {
       render(<Home />);
-      expect(screen.getAllByText("Space related").length).toBeGreaterThanOrEqual(2);
+      const privateLabelPills = screen.getAllByText("Private · Space related");
+      expect(privateLabelPills.length).toBeGreaterThanOrEqual(2);
+      privateLabelPills.forEach((pill) => {
+        expect(pill.getAttribute("data-private-label")).toBeTruthy();
+        expect(pill.className).toContain("rounded-full");
+      });
       expect(screen.getByRole("link", { name: "m.youtube.com" }).getAttribute("href")).toBe("/community/m.youtube.com");
       fireEvent.click(screen.getByRole("button", { name: "Add a source" }));
       expect(screen.getByPlaceholderText("Space related")).toBeTruthy();

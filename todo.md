@@ -342,3 +342,4 @@
 - [x] Add a dedicated Profile posts tab to the activity board while retaining Profile posts in Overview
 - [x] Keep only the Profile header’s top-left plus button as the Profile post composer trigger
 - [x] Remove duplicate Profile post composer controls from Overview and Profile posts areas
+- [x] Render owner-only private RSS labels as distinct pill-shaped tags in the reader
