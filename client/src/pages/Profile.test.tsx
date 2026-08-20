@@ -10,7 +10,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({ trpc: {
   useUtils: () => ({ storyPulse: { profile: { activity: { invalidate: vi.fn() } } } }),
   storyPulse: { profile: {
-    activity: { useQuery: () => ({ isLoading: false, data: { profile: { displayName: "Orbit", username: "orbit", bio: "Launch notes" }, reposts: [{ id: 2, discussionId: 4, parentPostId: null, storyUrl: "https://example.com/story", content: "A story Thread", createdAt: new Date() }], communityPosts: [{ id: 3, providerHostname: "youtube.com", title: "Provider launch", body: "A provider post", createdAt: new Date() }], topicActivity: [{ id: 8, kind: "thread", communityId: 9, communitySlug: "space", communityName: "Space", title: "New spacecraft", body: "A shared RSS Thread", sourceStoryUrl: "https://example.com/story", createdAt: new Date() }, { id: 7, kind: "post", communityId: 9, communitySlug: "space", communityName: "Space", title: "Mission note", body: "A compact topic post", createdAt: new Date() }] } }) },
+    activity: { useQuery: () => ({ isLoading: false, data: { profile: { displayName: "Orbit", username: "orbit", bio: "Launch notes" }, reposts: [{ id: 2, discussionId: 4, parentPostId: null, storyUrl: "https://example.com/story", content: "A story Thread", createdAt: new Date("2026-08-20T10:00:00Z") }, { id: 3, discussionId: 4, parentPostId: 2, storyUrl: "https://example.com/story", content: "A helpful story Reply", createdAt: new Date("2026-08-20T11:00:00Z") }], communityPosts: [{ id: 4, providerHostname: "youtube.com", title: "Provider launch", body: "A provider post", createdAt: new Date("2026-08-20T12:00:00Z") }], topicActivity: [{ id: 8, kind: "thread", communityId: 9, communitySlug: "space", communityName: "Space", title: "New spacecraft", body: "A shared RSS Thread", sourceStoryUrl: "https://example.com/story", createdAt: new Date("2026-08-20T13:00:00Z") }, { id: 7, kind: "post", communityId: 9, communitySlug: "space", communityName: "Space", title: "Mission note", body: "A compact topic post", createdAt: new Date("2026-08-20T14:00:00Z") }] } }) },
     update: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
   } },
 } }));
@@ -19,6 +19,18 @@ import Profile from "./Profile";
 
 describe("compact profile activity", () => {
   afterEach(() => { cleanup(); mocks.auth.loading = false; });
+
+  it("renders every user contribution in a compact mixed Overview grid", () => {
+    render(<Profile />);
+    const grid = screen.getByTestId("profile-overview-grid");
+    expect(grid.className).toContain("columns-1");
+    expect(grid.querySelectorAll("a")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Story Pulse: Story Pulse Thread" }).getAttribute("href")).toBe("/pulse/4#thread-2");
+    expect(screen.getByRole("link", { name: "Story Pulse: Story Pulse Reply" }).getAttribute("href")).toBe("/pulse/4#thread-2");
+    expect(screen.getByRole("link", { name: "Provider post: Provider launch" }).getAttribute("href")).toBe("/community/youtube.com");
+    expect(screen.getByRole("link", { name: "RSS Thread: New spacecraft" }).getAttribute("href")).toBe("/topics/space/discussion/thread/8");
+    expect(screen.getByRole("link", { name: "Topic post: Mission note" }).getAttribute("href")).toBe("/topics/space/discussion/post/7");
+  });
 
   it("groups topic posts and Threads under a compact Topics filter with discussion links", () => {
     render(<Profile />);

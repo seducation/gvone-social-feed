@@ -327,3 +327,6 @@
 - [x] Add YouTube Shorts startup-priority, autoplay, and sound-continuity regression coverage
 - [x] Fix the Profile conditional hook-order violation during loading and authenticated renders
 - [x] Add Profile loading-transition regression coverage for stable hook execution
+- [x] Redesign Profile Overview as a compact Pinterest-style grid containing all activity types
+- [x] Add responsive Profile Overview grid regression coverage for complete mixed activity rendering
+- [x] Include every available user contribution in the Overview grid without category-based truncation
