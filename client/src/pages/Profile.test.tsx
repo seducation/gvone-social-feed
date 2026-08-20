@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ isAuthenticated: true, loading: false }) }));
+const mocks = vi.hoisted(() => ({ auth: { isAuthenticated: true, loading: false } }));
+vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => mocks.auth }));
 vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({ trpc: {
@@ -17,6 +18,8 @@ vi.mock("@/lib/trpc", () => ({ trpc: {
 import Profile from "./Profile";
 
 describe("compact profile activity", () => {
+  afterEach(() => { cleanup(); mocks.auth.loading = false; });
+
   it("groups topic posts and Threads under a compact Topics filter with discussion links", () => {
     render(<Profile />);
     expect(screen.getByText("Activity board")).toBeTruthy();
@@ -24,5 +27,15 @@ describe("compact profile activity", () => {
     expect(screen.getByText("Space")).toBeTruthy();
     expect(screen.getByText("New spacecraft")).toBeTruthy();
     expect(screen.getByRole("link", { name: /New spacecraft/ }).getAttribute("href")).toBe("/topics/space/discussion/thread/8");
+  });
+
+  it("keeps Profile hooks stable when activity changes from loading to ready", () => {
+    mocks.auth.loading = true;
+    const view = render(<Profile />);
+    expect(screen.queryByText("Activity board")).toBeNull();
+
+    mocks.auth.loading = false;
+    expect(() => view.rerender(<Profile />)).not.toThrow();
+    expect(screen.getByText("Activity board")).toBeTruthy();
   });
 });

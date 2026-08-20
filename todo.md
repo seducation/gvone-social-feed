@@ -325,3 +325,5 @@
 - [x] Prioritize the active embedded YouTube Short so playback starts sooner
 - [x] Defer non-visible YouTube player initialization without changing native video behavior
 - [x] Add YouTube Shorts startup-priority, autoplay, and sound-continuity regression coverage
+- [x] Fix the Profile conditional hook-order violation during loading and authenticated renders
+- [x] Add Profile loading-transition regression coverage for stable hook execution
