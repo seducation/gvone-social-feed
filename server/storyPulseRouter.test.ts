@@ -7,18 +7,22 @@ vi.mock("./db", async () => {
     ...actual,
     addStoryReply: vi.fn(),
     addStoryRepost: vi.fn(),
+    createTopicCommunityThread: vi.fn(),
     ensureUserProfile: vi.fn(),
     getStoryDiscussion: vi.fn(),
+    getTopicCommunityBySlug: vi.fn(),
     getUserProfileByUsername: vi.fn(),
+    isTopicCommunityMember: vi.fn(),
     listProfileProviderCommunityPosts: vi.fn(),
     listProfilePulse: vi.fn(),
     listStoryReposts: vi.fn(),
     openStoryDiscussion: vi.fn(),
     updateUserProfile: vi.fn(),
+    userHasSavedStoryUrl: vi.fn(),
   };
 });
 
-import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfileProviderCommunityPosts, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
+import { addStoryReply, addStoryRepost, createTopicCommunityThread, ensureUserProfile, getStoryDiscussion, getTopicCommunityBySlug, getUserProfileByUsername, isTopicCommunityMember, listProfileProviderCommunityPosts, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile, userHasSavedStoryUrl } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -48,6 +52,21 @@ describe("Story Pulse", () => {
     await expect(appRouter.createCaller(createContext()).storyPulse.repost({ discussionId: 12, content: "Worth watching" })).resolves.toMatchObject({ id: 30, content: "Worth watching" });
 
     expect(addStoryRepost).toHaveBeenCalledWith(42, 12, "Worth watching");
+  });
+
+  it("optionally publishes a Story Thread into selected topics only when the member has joined them and owns the RSS story", async () => {
+    vi.mocked(getStoryDiscussion).mockResolvedValue({ id: 12, storyUrl: "https://example.com/launch" } as never);
+    vi.mocked(ensureUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", bio: null } as never);
+    vi.mocked(userHasSavedStoryUrl).mockResolvedValue(true);
+    vi.mocked(getTopicCommunityBySlug).mockResolvedValue({ id: 9, slug: "space", name: "Space", creatorUserId: 7, description: null, createdAt: new Date(), updatedAt: new Date() } as never);
+    vi.mocked(isTopicCommunityMember).mockResolvedValue(true);
+    vi.mocked(addStoryRepost).mockResolvedValue({ id: 30, discussionId: 12, userId: 42, content: "Worth watching", createdAt: new Date() } as never);
+    vi.mocked(createTopicCommunityThread).mockResolvedValue({ id: 41, communityId: 9, userId: 42, title: "Shared RSS Story Thread", body: "Worth watching", sourceStoryUrl: "https://example.com/launch", createdAt: new Date(), updatedAt: new Date() } as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.repost({ discussionId: 12, content: "Worth watching", topicSlugs: ["space"] })).resolves.toMatchObject({ id: 30, publishedTopicSlugs: ["space"] });
+
+    expect(userHasSavedStoryUrl).toHaveBeenCalledWith(42, "https://example.com/launch");
+    expect(createTopicCommunityThread).toHaveBeenCalledWith(42, "space", { title: "Shared RSS Story Thread", body: "Worth watching", sourceStoryUrl: "https://example.com/launch" });
   });
 
   it("publishes a quote answer directly beneath a question Thread", async () => {

@@ -25,7 +25,7 @@ vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({ storyPulse: { get: { invalidate: mocks.invalidatePulse }, profile: { activity: { invalidate: mocks.invalidateProfile } } } }),
+    useUtils: () => ({ storyPulse: { get: { invalidate: mocks.invalidatePulse }, profile: { activity: { invalidate: mocks.invalidateProfile } } }, topicCommunity: { list: { invalidate: mocks.invalidateProfile } } }),
     storyPulse: {
       get: { useQuery: () => ({ data: mocks.pulse, isLoading: false, error: null }) },
       repost: { useMutation: () => ({ mutate: mocks.repostMutate, isPending: false }) },
@@ -36,6 +36,7 @@ vi.mock("@/lib/trpc", () => ({
       },
     },
     feed: { articles: { useQuery: () => ({ data: [{ id: 4, feedId: 9, title: "Launch update", link: "https://example.com/launch", description: "A launch briefing", thumbnailUrl: null }], isLoading: false }) } },
+    topicCommunity: { list: { useQuery: () => ({ data: [{ id: 9, slug: "space", name: "Space", isMember: true, memberCount: 2, threadCount: 1 }], isLoading: false }) } },
     dashboard: { useQuery: () => ({ data: { feeds: [{ id: 9, title: "NASA", customTitle: null }] }, isLoading: false }) },
   },
 }));
@@ -52,7 +53,7 @@ describe("Story Pulse and member profile", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("keeps the original RSS story fixed above branded Threads and Echoes", () => {
+  it("keeps the original RSS story fixed above branded Threads and Replies", () => {
     window.history.pushState({}, "", "/pulse/12");
     render(<StoryPulse />);
 
@@ -63,24 +64,27 @@ describe("Story Pulse and member profile", () => {
     fireEvent.change(screen.getByLabelText("Start a Thread"), { target: { value: "My Thread" } });
     fireEvent.click(screen.getByRole("button", { name: "Start Thread" }));
     expect(mocks.repostMutate).toHaveBeenCalledWith({ discussionId: 12, content: "My Thread" });
-    fireEvent.click(screen.getByRole("button", { name: "Echo" }));
-    fireEvent.change(screen.getByLabelText("Your Echo"), { target: { value: "My Echo" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Echo" }));
-    expect(mocks.replyMutate).toHaveBeenCalledWith({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "My Echo" });
+    fireEvent.click(screen.getByRole("button", { name: "Space" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Thread" }));
+    expect(mocks.repostMutate).toHaveBeenCalledWith({ discussionId: 12, content: "My Thread", topicSlugs: ["space"] });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    fireEvent.change(screen.getByLabelText("Your Reply"), { target: { value: "My Reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Reply" }));
+    expect(mocks.replyMutate).toHaveBeenCalledWith({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "My Reply" });
     expect(screen.getByText("@orbit")).toBeTruthy();
-    expect(screen.getAllByText("Echoing @orbit’s Thread").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Replying to @orbit’s Thread").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("separates Threads, Echoes, and provider-community posts in the member profile", () => {
+  it("separates Threads, Replies, and provider-community posts in the member profile", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
     expect(screen.getByText("@reader")).toBeTruthy();
     expect(screen.getByText("Your Threads")).toBeTruthy();
-    expect(screen.getByText("Your Echoes")).toBeTruthy();
+    expect(screen.getByText("Your Replies")).toBeTruthy();
     expect(screen.getByText("Your community posts")).toBeTruthy();
     expect(screen.getByText("1 Thread started")).toBeTruthy();
-    expect(screen.getByText("1 Echo sent")).toBeTruthy();
+    expect(screen.getByText("1 Reply sent")).toBeTruthy();
     expect(screen.getAllByText("Launch update").length).toBe(2);
     expect(screen.getAllByText("What does this launch prove?").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("It verifies the new engine performance.")).toBeTruthy();

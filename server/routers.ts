@@ -12,6 +12,7 @@ import { refreshFeedBatch } from "./rssRefresh";
 import { chatRouter } from "./chatRouter";
 import { storyPulseRouter } from "./storyPulseRouter";
 import { providerCommunityRouter } from "./providerCommunityRouter";
+import { topicCommunityRouter } from "./topicCommunityRouter";
 
 function normalizeFeedImportError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -95,5 +96,6 @@ export const appRouter = router({
   chat: chatRouter,
   storyPulse: storyPulseRouter,
   providerCommunity: providerCommunityRouter,
+  topicCommunity: topicCommunityRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -11,6 +11,8 @@ import StoryPulse from "./pages/StoryPulse";
 import ProviderCommunity from "./pages/ProviderCommunity";
 import CommunityDirectory from "./pages/CommunityDirectory";
 import UserPage from "./pages/UserPage";
+import Topics from "./pages/Topics";
+import TopicCommunity from "./pages/TopicCommunity";
 import { StoryPulseFeedActions } from "./components/StoryPulseFeedActions";
 
 function Router() {
@@ -23,6 +25,8 @@ function Router() {
       <Route path={"/pulse/:id"} component={StoryPulse} />
       <Route path={"/community/:providerHostname"} component={ProviderCommunity} />
       <Route path={"/communities"} component={CommunityDirectory} />
+      <Route path={"/topics"} component={Topics} />
+      <Route path={"/topics/:slug"} component={TopicCommunity} />
       <Route path={"/u/:username"} component={UserPage} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

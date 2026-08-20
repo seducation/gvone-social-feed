@@ -8,6 +8,10 @@ import {
   RssArticle,
   ProviderCommunity,
   ProviderCommunityPost,
+  TopicCommunity,
+  TopicCommunityPost,
+  TopicCommunityReply,
+  TopicCommunityThread,
   StoryDiscussion,
   StoryDiscussionPost,
   UserProfile,
@@ -19,6 +23,11 @@ import {
   rssGroups,
   providerCommunities,
   providerCommunityPosts,
+  topicCommunities,
+  topicCommunityMembers,
+  topicCommunityPosts,
+  topicCommunityReplies,
+  topicCommunityThreads,
   sourceTabPreferences,
   storyDiscussionPosts,
   storyDiscussions,
@@ -419,4 +428,195 @@ export async function listProfileProviderCommunityPosts(userId: number) {
     .innerJoin(providerCommunities, eq(providerCommunityPosts.communityId, providerCommunities.id))
     .where(eq(providerCommunityPosts.userId, userId))
     .orderBy(desc(providerCommunityPosts.createdAt));
+}
+
+export type TopicCommunityInput = {
+  slug: string;
+  name: string;
+  description?: string | null;
+};
+
+export type TopicThreadInput = {
+  title: string;
+  body?: string | null;
+  sourceStoryUrl?: string | null;
+};
+
+export async function getTopicCommunityBySlug(slug: string): Promise<TopicCommunity | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(topicCommunities).where(eq(topicCommunities.slug, slug)).limit(1))[0];
+}
+
+export async function isTopicCommunityMember(userId: number, communityId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  return Boolean((await db.select({ userId: topicCommunityMembers.userId }).from(topicCommunityMembers)
+    .where(and(eq(topicCommunityMembers.communityId, communityId), eq(topicCommunityMembers.userId, userId))).limit(1))[0]);
+}
+
+async function countTopicCommunityMembers(communityId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  return (await db.select({ userId: topicCommunityMembers.userId }).from(topicCommunityMembers)
+    .where(eq(topicCommunityMembers.communityId, communityId))).length;
+}
+
+async function countTopicCommunityThreads(communityId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  return (await db.select({ id: topicCommunityThreads.id }).from(topicCommunityThreads)
+    .where(eq(topicCommunityThreads.communityId, communityId))).length;
+}
+
+export async function listTopicCommunitiesForUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const communities = await db.select().from(topicCommunities).orderBy(desc(topicCommunities.updatedAt));
+  return Promise.all(communities.map(async (community) => ({
+    ...community,
+    isMember: await isTopicCommunityMember(userId, community.id),
+    memberCount: await countTopicCommunityMembers(community.id),
+    threadCount: await countTopicCommunityThreads(community.id),
+  })));
+}
+
+export async function createTopicCommunity(userId: number, input: TopicCommunityInput): Promise<TopicCommunity | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  try {
+    const result = await db.insert(topicCommunities).values({ ...input, description: input.description || null, creatorUserId: userId });
+    const communityId = Number(result[0].insertId);
+    await db.insert(topicCommunityMembers).values({ communityId, userId }).onDuplicateKeyUpdate({ set: { communityId } });
+    return (await db.select().from(topicCommunities).where(eq(topicCommunities.id, communityId)).limit(1))[0];
+  } catch {
+    return undefined;
+  }
+}
+
+export async function joinTopicCommunity(userId: number, slug: string): Promise<TopicCommunity | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community) return undefined;
+  await db.insert(topicCommunityMembers).values({ communityId: community.id, userId }).onDuplicateKeyUpdate({ set: { communityId: community.id } });
+  return community;
+}
+
+export async function leaveTopicCommunity(userId: number, slug: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community) return false;
+  await db.delete(topicCommunityMembers).where(and(eq(topicCommunityMembers.communityId, community.id), eq(topicCommunityMembers.userId, userId)));
+  return true;
+}
+
+export async function createTopicCommunityPost(userId: number, slug: string, body: string, title?: string | null): Promise<TopicCommunityPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community || !(await isTopicCommunityMember(userId, community.id))) return undefined;
+  const result = await db.insert(topicCommunityPosts).values({ communityId: community.id, userId, title: title || null, body });
+  return (await db.select().from(topicCommunityPosts).where(eq(topicCommunityPosts.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function userHasSavedStoryUrl(userId: number, sourceStoryUrl: string) {
+  const db = await getDb();
+  if (!db) return false;
+  return Boolean((await db.select({ id: rssArticles.id }).from(rssArticles)
+    .innerJoin(rssFeeds, eq(rssArticles.feedId, rssFeeds.id))
+    .where(and(eq(rssFeeds.userId, userId), eq(rssArticles.link, sourceStoryUrl))).limit(1))[0]);
+}
+
+export async function createTopicCommunityThread(userId: number, slug: string, input: TopicThreadInput): Promise<TopicCommunityThread | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community || !(await isTopicCommunityMember(userId, community.id))) return undefined;
+  if (input.sourceStoryUrl && !(await userHasSavedStoryUrl(userId, input.sourceStoryUrl))) return undefined;
+  try {
+    const result = await db.insert(topicCommunityThreads).values({
+      communityId: community.id,
+      userId,
+      title: input.title,
+      body: input.body || null,
+      sourceStoryUrl: input.sourceStoryUrl || null,
+    });
+    return (await db.select().from(topicCommunityThreads).where(eq(topicCommunityThreads.id, Number(result[0].insertId))).limit(1))[0];
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getTopicCommunityThread(threadId: number): Promise<TopicCommunityThread | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(topicCommunityThreads).where(eq(topicCommunityThreads.id, threadId)).limit(1))[0];
+}
+
+export async function createTopicCommunityReply(userId: number, threadId: number, body: string): Promise<TopicCommunityReply | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const thread = await getTopicCommunityThread(threadId);
+  if (!thread || !(await isTopicCommunityMember(userId, thread.communityId))) return undefined;
+  const result = await db.insert(topicCommunityReplies).values({ threadId, userId, body });
+  return (await db.select().from(topicCommunityReplies).where(eq(topicCommunityReplies.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function getTopicCommunityForUser(userId: number, slug: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community) return undefined;
+  const rows = await db.select({
+    id: topicCommunityThreads.id,
+    communityId: topicCommunityThreads.communityId,
+    userId: topicCommunityThreads.userId,
+    title: topicCommunityThreads.title,
+    body: topicCommunityThreads.body,
+    sourceStoryUrl: topicCommunityThreads.sourceStoryUrl,
+    createdAt: topicCommunityThreads.createdAt,
+    updatedAt: topicCommunityThreads.updatedAt,
+    displayName: userProfiles.displayName,
+    username: userProfiles.username,
+  }).from(topicCommunityThreads)
+    .leftJoin(userProfiles, eq(topicCommunityThreads.userId, userProfiles.userId))
+    .where(eq(topicCommunityThreads.communityId, community.id))
+    .orderBy(desc(topicCommunityThreads.createdAt));
+  const threadIds = rows.map((thread) => thread.id);
+  const replyRows = threadIds.length ? await db.select({
+    id: topicCommunityReplies.id,
+    threadId: topicCommunityReplies.threadId,
+    userId: topicCommunityReplies.userId,
+    body: topicCommunityReplies.body,
+    createdAt: topicCommunityReplies.createdAt,
+    displayName: userProfiles.displayName,
+    username: userProfiles.username,
+  }).from(topicCommunityReplies)
+    .leftJoin(userProfiles, eq(topicCommunityReplies.userId, userProfiles.userId))
+    .where(inArray(topicCommunityReplies.threadId, threadIds))
+    .orderBy(asc(topicCommunityReplies.createdAt)) : [];
+  const repliesByThread = new Map<number, typeof replyRows>();
+  for (const reply of replyRows) repliesByThread.set(reply.threadId, [...(repliesByThread.get(reply.threadId) ?? []), reply]);
+  const posts = await db.select({
+    id: topicCommunityPosts.id,
+    communityId: topicCommunityPosts.communityId,
+    userId: topicCommunityPosts.userId,
+    title: topicCommunityPosts.title,
+    body: topicCommunityPosts.body,
+    createdAt: topicCommunityPosts.createdAt,
+    displayName: userProfiles.displayName,
+    username: userProfiles.username,
+  }).from(topicCommunityPosts)
+    .leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId))
+    .where(eq(topicCommunityPosts.communityId, community.id))
+    .orderBy(desc(topicCommunityPosts.createdAt));
+  return {
+    community,
+    isMember: await isTopicCommunityMember(userId, community.id),
+    memberCount: await countTopicCommunityMembers(community.id),
+    posts,
+    threads: rows.map((thread) => ({ ...thread, replies: repliesByThread.get(thread.id) ?? [] })),
+  };
 }

@@ -276,3 +276,22 @@
 - [x] Add a Visit all communities action when the reader is in the All view
 - [x] Refine the reader top-control spacing and responsive layout after adding community actions
 - [x] Add All-view community navigation and top-control layout regression coverage
+- [x] Create separate topic communities with a unique name, description, creator, and public topic feed
+- [x] Add member join and leave state for topic communities
+- [x] Add topic-specific posts with a title and optional body for community members
+- [x] Build a topic directory, topic pages, join controls, and a topic post composer
+- [x] Keep topic communities visually and functionally separate from RSS provider communities
+- [x] Add topic community creation, membership, posting, permissions, and navigation regression coverage
+- [x] Replaced by final model: ordinary topic posts coexist with top-level discussion Threads and member Replies
+- [x] Use Thread-specific creation, timeline, and Reply language throughout topic community pages
+- [x] Let members share saved RSS stories into topics as URL-backed discussion Threads without copying RSS story content
+- [x] Add RSS-to-topic sharing and source-context regression coverage
+- [x] Rename all user-facing Echo terminology to Reply across Story Pulse, profiles, public activity, and tests
+- [x] Replaced by clarified direction: topics are standalone user-created Reddit-style communities, not hashtags
+- [x] Add a dedicated Topics page for member discovery of user-created communities
+- [x] Add a dedicated topic creation flow accessible from the Topics page
+- [x] Let an RSS Story Thread optionally publish to one or more joined topics from its writing area
+- [x] Keep story-only Thread publishing available when no topic is selected
+- [x] Add multi-topic selection and optional publishing regression coverage
+- [x] Add ordinary topic posts that members can publish without creating or linking an RSS Thread
+- [x] Show ordinary topic posts as a distinct social feed within the topic page

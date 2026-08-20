@@ -138,6 +138,67 @@ export const providerCommunityPosts = mysqlTable("provider_community_posts", {
   userCreated: index("provider_community_posts_user_created").on(table.userId, table.createdAt),
 }));
 
+export const topicCommunities = mysqlTable("topic_communities", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  description: varchar("description", { length: 500 }),
+  creatorUserId: int("creatorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  slug: uniqueIndex("topic_communities_slug").on(table.slug),
+  name: uniqueIndex("topic_communities_name").on(table.name),
+  creator: index("topic_communities_creator").on(table.creatorUserId),
+}));
+
+export const topicCommunityMembers = mysqlTable("topic_community_members", {
+  communityId: int("communityId").notNull(),
+  userId: int("userId").notNull(),
+  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+}, (table) => ({
+  membership: uniqueIndex("topic_community_members_pair").on(table.communityId, table.userId),
+  user: index("topic_community_members_user").on(table.userId),
+}));
+
+export const topicCommunityPosts = mysqlTable("topic_community_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  communityId: int("communityId").notNull(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 300 }),
+  body: text("body").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  communityCreated: index("topic_community_posts_community_created").on(table.communityId, table.createdAt),
+  userCreated: index("topic_community_posts_user_created").on(table.userId, table.createdAt),
+}));
+
+export const topicCommunityThreads = mysqlTable("topic_community_threads", {
+  id: int("id").autoincrement().primaryKey(),
+  communityId: int("communityId").notNull(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 300 }).notNull(),
+  body: text("body"),
+  sourceStoryUrl: varchar("sourceStoryUrl", { length: 2048 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  communityCreated: index("topic_community_threads_community_created").on(table.communityId, table.createdAt),
+  userCreated: index("topic_community_threads_user_created").on(table.userId, table.createdAt),
+  sharedStory: uniqueIndex("topic_community_threads_story").on(table.communityId, table.sourceStoryUrl),
+}));
+
+export const topicCommunityReplies = mysqlTable("topic_community_replies", {
+  id: int("id").autoincrement().primaryKey(),
+  threadId: int("threadId").notNull(),
+  userId: int("userId").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  threadCreated: index("topic_community_replies_thread_created").on(table.threadId, table.createdAt),
+  userCreated: index("topic_community_replies_user_created").on(table.userId, table.createdAt),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type RssFeed = typeof rssFeeds.$inferSelect;
@@ -150,3 +211,8 @@ export type StoryDiscussion = typeof storyDiscussions.$inferSelect;
 export type StoryDiscussionPost = typeof storyDiscussionPosts.$inferSelect;
 export type ProviderCommunity = typeof providerCommunities.$inferSelect;
 export type ProviderCommunityPost = typeof providerCommunityPosts.$inferSelect;
+export type TopicCommunity = typeof topicCommunities.$inferSelect;
+export type TopicCommunityMember = typeof topicCommunityMembers.$inferSelect;
+export type TopicCommunityPost = typeof topicCommunityPosts.$inferSelect;
+export type TopicCommunityThread = typeof topicCommunityThreads.$inferSelect;
+export type TopicCommunityReply = typeof topicCommunityReplies.$inferSelect;
