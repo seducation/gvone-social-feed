@@ -6,6 +6,9 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Chat from "./pages/Chat";
 import Home from "./pages/Home";
+import Profile from "./pages/Profile";
+import StoryPulse from "./pages/StoryPulse";
+import { StoryPulseFeedActions } from "./components/StoryPulseFeedActions";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -13,6 +16,8 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/chat"} component={Chat} />
+      <Route path={"/profile"} component={Profile} />
+      <Route path={"/pulse/:id"} component={StoryPulse} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -34,6 +39,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <StoryPulseFeedActions />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

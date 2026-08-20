@@ -10,6 +10,7 @@ import { ARTICLE_HISTORY_LIMIT, assignFeed, getDb, getFeed, getGroup, getSourceT
 import { parseFeed } from "./feedParser";
 import { refreshFeedBatch } from "./rssRefresh";
 import { chatRouter } from "./chatRouter";
+import { storyPulseRouter } from "./storyPulseRouter";
 
 function normalizeFeedImportError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -91,5 +92,6 @@ export const appRouter = router({
     set: protectedProcedure.input(z.object({ feedId: z.number().positive(), groupId: z.number().positive(), assigned: z.boolean() })).mutation(async ({ ctx, input }) => { if (input.assigned) await assignFeed(ctx.user.id, input.feedId, input.groupId); else await unassignFeed(ctx.user.id, input.feedId, input.groupId); return { success: true }; }),
   }),
   chat: chatRouter,
+  storyPulse: storyPulseRouter,
 });
 export type AppRouter = typeof appRouter;

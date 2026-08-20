@@ -173,3 +173,40 @@
 - [x] Place the Shorts Open original action above the video title in the lower metadata stack
 - [x] Preserve the YouTube control-safe clearance while refining Shorts metadata order
 - [x] Add regression coverage for original-link-before-title ordering in Shorts
+- [x] Define private feed-article thread behavior that reuses one conversation per saved story
+- [x] Replaced by user request: do not persist article-linked chat conversation references
+- [x] Add a minimal Thread action to every feed article card
+- [x] Replaced by user request: do not open private chat conversations from article Thread actions
+- [x] Replaced by user request: do not create private user-chat threads from article Thread actions
+- [x] Remove the unused RSS article reference and unique constraint from chat storage
+- [x] Replaced by user request: private user-thread creation and feed-to-chat coverage
+- [x] Replaced by user request: user-owned thread source snapshots and private thread directory
+- [x] Replaced by user request: private chat Threads space and feed-label grouping
+- [x] Confirm which users may view and comment in a shared discussion for the same feed or story: any signed-in gvone user opening that source
+- [x] Replaced by user clarification: do not create one shared discussion for an entire RSS source
+- [x] Replaced by user clarification: use shared RSS URL Thread entry points instead of per-story discussions
+- [x] Replaced by user clarification: do not group related feed stories into a single discussion
+- [x] Replaced by user clarification: do not use a feed-wide discussion identity
+- [x] Enforce signed-in access before listing or posting any shared story repost
+- [x] Create a private editable user profile with display name and bio for discussion identity
+- [x] Attribute shared story reposts to each author's current profile
+- [x] Add a profile settings entry point and user profile editor
+- [x] Add profile ownership and repost-attribution regression coverage
+- [x] Replaced by user clarification: do not support separate posts, replies, or nested reply threads
+- [x] Replaced by user clarification: reposts are the only contribution type in a story thread
+- [x] Add Thread opening and repost contribution controls with regression coverage for source access and authorship
+- [x] Replaced by user clarification: do not store a copied RSS story snapshot as a shared discussion original post
+- [x] Replaced by user clarification: do not show reposts beneath a copied RSS story context card
+- [x] Show every member-created story repost in that user's profile activity feed
+- [x] Add profile activity visibility and thread-navigation regression coverage
+- [x] Apply Story Pulse naming to the fixed original-story context card and repost-only activity view
+- [x] Keep reposts as the only community contribution type in each Story Pulse thread
+- [x] Normalize each RSS story URL into one lightweight Story Pulse thread identity
+- [x] Store only the RSS story URL reference for each Story Pulse thread
+- [x] Open the matching RSS story URL repost thread from each article Thread action
+- [x] Show the RSS story URL reference and all reposts without copied story content
+- [x] Resolve the Story Pulse title, image, source, and description from each reader's existing RSS story data by URL
+- [x] Rank related articles from the reader's private feed library using shared story terms
+- [x] Add a minimal Related action to every feed article card
+- [x] Show a focused related-story view with source labels and original article links
+- [x] Add coverage for related-story ranking and Related action interaction

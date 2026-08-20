@@ -67,4 +67,3 @@ describe("private chat branches", () => {
     expect(result.assistantMessage.content).toBe("Launch-focused reply");
   });
 });
-

@@ -1,6 +1,25 @@
 import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { ChatConversation, ChatMessage, InsertUser, RssArticle, chatConversations, chatMessages, rssArticles, rssFeeds, rssGroups, feedGroups, sourceTabPreferences, users } from "../drizzle/schema";
+import {
+  ChatConversation,
+  ChatMessage,
+  InsertUser,
+  RssArticle,
+  StoryDiscussion,
+  StoryDiscussionPost,
+  UserProfile,
+  chatConversations,
+  chatMessages,
+  feedGroups,
+  rssArticles,
+  rssFeeds,
+  rssGroups,
+  sourceTabPreferences,
+  storyDiscussionPosts,
+  storyDiscussions,
+  userProfiles,
+  users,
+} from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import type { ParsedFeed } from "./feedParser";
 import { buildBranchHistory, type BranchHistoryMessage, type BranchNode, type DirectBranchMessage } from "./chatMemory";
@@ -119,4 +138,96 @@ export async function getChatBranchHistory(userId: number, conversationId: numbe
     messagesByConversation.set(lineage[index].id, await listDirectChatMessages(userId, lineage[index].id, nextBranch?.forkMessageId ?? undefined));
   }
   return buildBranchHistory(lineage, messagesByConversation);
+}
+
+function defaultProfileName(name: string | null | undefined) {
+  return (name?.trim() || "gvone member").slice(0, 80);
+}
+
+export async function getUserProfile(userId: number): Promise<UserProfile | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1))[0];
+}
+
+export async function ensureUserProfile(userId: number, fallbackName?: string | null): Promise<UserProfile | undefined> {
+  const existing = await getUserProfile(userId);
+  if (existing) return existing;
+  const db = await getDb();
+  if (!db) return undefined;
+  try {
+    await db.insert(userProfiles).values({ userId, displayName: defaultProfileName(fallbackName) });
+  } catch {
+    // A concurrent request may have created the profile first; read it below.
+  }
+  return getUserProfile(userId);
+}
+
+export async function updateUserProfile(userId: number, displayName: string, bio?: string | null) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const existing = await getUserProfile(userId);
+  if (existing) {
+    await db.update(userProfiles).set({ displayName, bio: bio || null, updatedAt: new Date() }).where(eq(userProfiles.userId, userId));
+  } else {
+    await db.insert(userProfiles).values({ userId, displayName, bio: bio || null });
+  }
+  return getUserProfile(userId);
+}
+
+export type StoryPulseInput = {
+  storyUrl: string;
+};
+
+export async function getStoryDiscussion(id: number): Promise<StoryDiscussion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(storyDiscussions).where(eq(storyDiscussions.id, id)).limit(1))[0];
+}
+
+export async function openStoryDiscussion(input: StoryPulseInput): Promise<StoryDiscussion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const existing = (await db.select().from(storyDiscussions).where(eq(storyDiscussions.storyUrl, input.storyUrl)).limit(1))[0];
+  if (existing) return existing;
+  try {
+    const result = await db.insert(storyDiscussions).values(input);
+    return getStoryDiscussion(Number(result[0].insertId));
+  } catch {
+    return (await db.select().from(storyDiscussions).where(eq(storyDiscussions.storyUrl, input.storyUrl)).limit(1))[0];
+  }
+}
+
+export async function listStoryReposts(discussionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: storyDiscussionPosts.id,
+    discussionId: storyDiscussionPosts.discussionId,
+    userId: storyDiscussionPosts.userId,
+    content: storyDiscussionPosts.content,
+    createdAt: storyDiscussionPosts.createdAt,
+    displayName: userProfiles.displayName,
+    bio: userProfiles.bio,
+  }).from(storyDiscussionPosts).leftJoin(userProfiles, eq(storyDiscussionPosts.userId, userProfiles.userId)).where(eq(storyDiscussionPosts.discussionId, discussionId)).orderBy(desc(storyDiscussionPosts.createdAt));
+}
+
+export async function addStoryRepost(userId: number, discussionId: number, content: string): Promise<StoryDiscussionPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(storyDiscussionPosts).values({ userId, discussionId, content });
+  await db.update(storyDiscussions).set({ updatedAt: new Date() }).where(eq(storyDiscussions.id, discussionId));
+  return (await db.select().from(storyDiscussionPosts).where(eq(storyDiscussionPosts.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function listProfilePulse(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: storyDiscussionPosts.id,
+    content: storyDiscussionPosts.content,
+    createdAt: storyDiscussionPosts.createdAt,
+    discussionId: storyDiscussions.id,
+    storyUrl: storyDiscussions.storyUrl,
+  }).from(storyDiscussionPosts).innerJoin(storyDiscussions, eq(storyDiscussionPosts.discussionId, storyDiscussions.id)).where(eq(storyDiscussionPosts.userId, userId)).orderBy(desc(storyDiscussionPosts.createdAt));
 }

@@ -82,6 +82,34 @@ export const chatMessages = mysqlTable("chat_messages", {
   userConversation: index("chat_messages_user_conversation").on(table.userId, table.conversationId),
 }));
 
+export const userProfiles = mysqlTable("user_profiles", {
+  userId: int("userId").primaryKey(),
+  displayName: varchar("displayName", { length: 80 }).notNull(),
+  bio: varchar("bio", { length: 280 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const storyDiscussions = mysqlTable("story_discussions", {
+  id: int("id").autoincrement().primaryKey(),
+  storyUrl: varchar("storyUrl", { length: 2048 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  storyUrl: uniqueIndex("story_discussions_story_url").on(table.storyUrl),
+  updated: index("story_discussions_updated").on(table.updatedAt),
+}));
+
+export const storyDiscussionPosts = mysqlTable("story_discussion_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  discussionId: int("discussionId").notNull(),
+  userId: int("userId").notNull(),
+  content: text("content"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  discussionCreated: index("story_discussion_posts_discussion_created").on(table.discussionId, table.createdAt),
+  userCreated: index("story_discussion_posts_user_created").on(table.userId, table.createdAt),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type RssFeed = typeof rssFeeds.$inferSelect;
@@ -89,3 +117,6 @@ export type RssGroup = typeof rssGroups.$inferSelect;
 export type RssArticle = typeof rssArticles.$inferSelect;
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type StoryDiscussion = typeof storyDiscussions.$inferSelect;
+export type StoryDiscussionPost = typeof storyDiscussionPosts.$inferSelect;
