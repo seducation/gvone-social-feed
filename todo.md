@@ -340,3 +340,5 @@
 - [x] Replaced by user clarification: open the Profile post composer from the Profile header plus button
 - [x] Place the Profile post plus button at the top-left of the Profile header
 - [x] Add a dedicated Profile posts tab to the activity board while retaining Profile posts in Overview
+- [x] Keep only the Profile header’s top-left plus button as the Profile post composer trigger
+- [x] Remove duplicate Profile post composer controls from Overview and Profile posts areas
