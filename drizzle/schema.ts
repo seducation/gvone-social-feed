@@ -117,6 +117,27 @@ export const storyDiscussionPosts = mysqlTable("story_discussion_posts", {
   quotedPost: index("story_discussion_posts_quoted_post").on(table.quotedPostId),
 }));
 
+export const providerCommunities = mysqlTable("provider_communities", {
+  id: int("id").autoincrement().primaryKey(),
+  providerHostname: varchar("providerHostname", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  providerHostname: uniqueIndex("provider_communities_provider_hostname").on(table.providerHostname),
+}));
+
+export const providerCommunityPosts = mysqlTable("provider_community_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  communityId: int("communityId").notNull(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 300 }).notNull(),
+  body: text("body"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  communityCreated: index("provider_community_posts_community_created").on(table.communityId, table.createdAt),
+  userCreated: index("provider_community_posts_user_created").on(table.userId, table.createdAt),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type RssFeed = typeof rssFeeds.$inferSelect;
@@ -127,3 +148,5 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type StoryDiscussion = typeof storyDiscussions.$inferSelect;
 export type StoryDiscussionPost = typeof storyDiscussionPosts.$inferSelect;
+export type ProviderCommunity = typeof providerCommunities.$inferSelect;
+export type ProviderCommunityPost = typeof providerCommunityPosts.$inferSelect;

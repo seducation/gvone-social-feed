@@ -38,6 +38,8 @@ const mocks = vi.hoisted(() => ({
   invalidateArticles: vi.fn().mockResolvedValue(undefined),
   invalidateGroupArticles: vi.fn().mockResolvedValue(undefined),
   refetchSourceTabOrder: vi.fn().mockResolvedValue(undefined),
+  invalidateProviderCommunities: vi.fn().mockResolvedValue(undefined),
+  invalidateProviderCommunity: vi.fn().mockResolvedValue(undefined),
   sourceTabOrder: [] as string[],
   refreshAllOptions: undefined as { onSuccess?: (data: { attempted: number; refreshed: number }) => Promise<void> } | undefined,
   dashboardData: {
@@ -58,6 +60,10 @@ const mocks = vi.hoisted(() => ({
     { id: 2, feedId: 8, title: "Reddit update", link: "https://example.com/reddit", description: null, publishedAt: new Date("2026-08-19T07:00:00Z"), thumbnailUrl: null, videoUrl: null },
     { id: 3, feedId: 9, title: "CNN update", link: "https://example.com/cnn", description: null, publishedAt: new Date("2026-08-19T06:00:00Z"), thumbnailUrl: null, videoUrl: null },
   ],
+  providerCommunities: [
+    { id: 1, providerHostname: "youtube.com", createdAt: new Date(), updatedAt: new Date() },
+    { id: 2, providerHostname: "reddit.com", createdAt: new Date(), updatedAt: new Date() },
+  ],
 }));
 
 vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ isAuthenticated: true, loading: false, logout: vi.fn() }) }));
@@ -66,7 +72,7 @@ vi.mock("@/const", () => ({ startLogin: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({ dashboard: { invalidate: mocks.invalidateDashboard }, feed: { articles: { invalidate: mocks.invalidateArticles } }, group: { articles: { invalidate: mocks.invalidateGroupArticles } } }),
+    useUtils: () => ({ dashboard: { invalidate: mocks.invalidateDashboard }, feed: { articles: { invalidate: mocks.invalidateArticles } }, group: { articles: { invalidate: mocks.invalidateGroupArticles } }, providerCommunity: { list: { invalidate: mocks.invalidateProviderCommunities }, get: { invalidate: mocks.invalidateProviderCommunity } } }),
     dashboard: { useQuery: () => ({ isLoading: false, data: mocks.dashboardData }) },
     sourceTabs: {
       order: { useQuery: () => ({ data: mocks.sourceTabOrder, refetch: mocks.refetchSourceTabOrder }) },
@@ -91,6 +97,7 @@ vi.mock("@/lib/trpc", () => ({
       delete: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     assignment: { list: { useQuery: () => ({ data: [] }) }, set: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
+    providerCommunity: { list: { useQuery: () => ({ data: mocks.providerCommunities }) }, createPost: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
   },
 }));
 
@@ -523,5 +530,16 @@ describe("dashboard reload refresh controls", () => {
     await waitFor(() => expect(redditTab.getAttribute("aria-pressed")).toBe("true"));
     expect(screen.getByText("Reddit update")).toBeTruthy();
     expect(screen.queryByText("NASA update")).toBeNull();
+  });
+
+  it("opens the provider-community composer from the source-bar plus icon", () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create community post" }));
+
+    const composer = screen.getByRole("dialog", { name: "Create community post" });
+    expect(within(composer).getByRole("option", { name: "youtube.com" })).toBeTruthy();
+    expect(within(composer).getByRole("option", { name: "reddit.com" })).toBeTruthy();
+    expect(within(composer).getByPlaceholderText("Title")).toBeTruthy();
   });
 });

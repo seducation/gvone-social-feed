@@ -6,6 +6,8 @@ import {
   ChatMessage,
   InsertUser,
   RssArticle,
+  ProviderCommunity,
+  ProviderCommunityPost,
   StoryDiscussion,
   StoryDiscussionPost,
   UserProfile,
@@ -15,6 +17,8 @@ import {
   rssArticles,
   rssFeeds,
   rssGroups,
+  providerCommunities,
+  providerCommunityPosts,
   sourceTabPreferences,
   storyDiscussionPosts,
   storyDiscussions,
@@ -300,4 +304,65 @@ export async function listProfilePulse(userId: number) {
     .leftJoin(quotedStoryProfile, eq(quotedStoryDiscussionPost.userId, quotedStoryProfile.userId))
     .where(eq(storyDiscussionPosts.userId, userId))
     .orderBy(desc(storyDiscussionPosts.createdAt));
+}
+
+export function canonicalProviderHostname(value: string) {
+  try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
+}
+
+export async function listUserProviderHostnames(userId: number) {
+  const feeds = await listFeeds(userId);
+  return Array.from(new Set(feeds.map((feed) => canonicalProviderHostname(feed.url)).filter(Boolean))).sort();
+}
+
+export async function getOrCreateProviderCommunity(providerHostname: string): Promise<ProviderCommunity | undefined> {
+  const db = await getDb();
+  if (!db || !providerHostname) return undefined;
+  const existing = (await db.select().from(providerCommunities).where(eq(providerCommunities.providerHostname, providerHostname)).limit(1))[0];
+  if (existing) return existing;
+  try { await db.insert(providerCommunities).values({ providerHostname }); } catch { /* Concurrent creation is safe; read the shared row below. */ }
+  return (await db.select().from(providerCommunities).where(eq(providerCommunities.providerHostname, providerHostname)).limit(1))[0];
+}
+
+export async function listProviderCommunitiesForUser(userId: number): Promise<ProviderCommunity[]> {
+  const providerHostnames = await listUserProviderHostnames(userId);
+  const communities = await Promise.all(providerHostnames.map((providerHostname) => getOrCreateProviderCommunity(providerHostname)));
+  return communities.filter((community): community is ProviderCommunity => Boolean(community));
+}
+
+export async function getProviderCommunityForUser(userId: number, providerHostname: string): Promise<ProviderCommunity | undefined> {
+  const normalized = canonicalProviderHostname(`https://${providerHostname}`) || providerHostname.toLowerCase().replace(/^www\./, "");
+  const savedProviders = await listUserProviderHostnames(userId);
+  if (!savedProviders.includes(normalized)) return undefined;
+  return getOrCreateProviderCommunity(normalized);
+}
+
+export async function createProviderCommunityPost(userId: number, providerHostname: string, title: string, body?: string | null): Promise<ProviderCommunityPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getProviderCommunityForUser(userId, providerHostname);
+  if (!community) return undefined;
+  const result = await db.insert(providerCommunityPosts).values({ communityId: community.id, userId, title, body: body || null });
+  return (await db.select().from(providerCommunityPosts).where(eq(providerCommunityPosts.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function listProviderCommunityPostsForUser(userId: number, providerHostname: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getProviderCommunityForUser(userId, providerHostname);
+  if (!community) return undefined;
+  const rows = await db.select({
+    id: providerCommunityPosts.id,
+    communityId: providerCommunityPosts.communityId,
+    userId: providerCommunityPosts.userId,
+    title: providerCommunityPosts.title,
+    body: providerCommunityPosts.body,
+    createdAt: providerCommunityPosts.createdAt,
+    displayName: userProfiles.displayName,
+    username: userProfiles.username,
+  }).from(providerCommunityPosts)
+    .leftJoin(userProfiles, eq(providerCommunityPosts.userId, userProfiles.userId))
+    .where(eq(providerCommunityPosts.communityId, community.id))
+    .orderBy(desc(providerCommunityPosts.createdAt));
+  return { community, posts: rows };
 }

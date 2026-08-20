@@ -240,3 +240,8 @@
 - [x] Add provider extraction and custom-title privacy regression coverage
 - [x] Replaced by user clarification: prefer public YouTube channel handles for YouTube Story Pulse labels while retaining neutral domains for other providers
 - [x] Use only canonical provider hostnames for all public Story Pulse and profile activity labels
+- [x] Create internal gvone communities keyed by the saved RSS provider hostname
+- [x] Add protected provider-community post storage with a title and optional body
+- [x] Add a plus-button composer to select a provider community and publish a member post
+- [x] Make provider names open their internal community post streams
+- [x] Add ownership, provider-isolation, post-publish, and navigation regression coverage

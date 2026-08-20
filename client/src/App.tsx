@@ -8,6 +8,7 @@ import Chat from "./pages/Chat";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import StoryPulse from "./pages/StoryPulse";
+import ProviderCommunity from "./pages/ProviderCommunity";
 import { StoryPulseFeedActions } from "./components/StoryPulseFeedActions";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path={"/chat"} component={Chat} />
       <Route path={"/profile"} component={Profile} />
       <Route path={"/pulse/:id"} component={StoryPulse} />
+      <Route path={"/community/:providerHostname"} component={ProviderCommunity} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
