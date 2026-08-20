@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isReplyableStoryThread, ownsResource, sortArticlesByPublished } from "./db";
+import { defaultProfileUsername, isReplyableStoryThread, ownsResource, sortArticlesByPublished } from "./db";
 
 describe("RSS privacy and unified-feed helpers", () => {
   it("only treats resources belonging to the current user as owned", () => {
@@ -21,5 +21,10 @@ describe("RSS privacy and unified-feed helpers", () => {
     expect(isReplyableStoryThread({ parentPostId: null })).toBe(true);
     expect(isReplyableStoryThread({ parentPostId: 14 })).toBe(false);
     expect(isReplyableStoryThread(undefined)).toBe(false);
+  });
+
+  it("creates a stable unique fallback username from the profile owner id", () => {
+    expect(defaultProfileUsername(42)).toBe("member_42");
+    expect(defaultProfileUsername(43)).toBe("member_43");
   });
 });

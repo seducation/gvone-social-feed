@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
-import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
 
 const displayName = z.string().trim().min(1).max(80);
+const username = z.string().trim().min(3).max(30).regex(/^[a-z][a-z0-9_]*$/i, "Use 3–30 letters, numbers, or underscores, starting with a letter");
 const bio = z.string().trim().max(280).optional();
 const repostContent = z.string().trim().min(1).max(600);
 const storyInput = z.object({ storyUrl: z.string().url().max(2048) });
@@ -15,11 +16,18 @@ function normalizeStoryUrl(value: string) {
   return url.toString();
 }
 
+function normalizeUsername(value: string) {
+  return value.trim().toLowerCase();
+}
+
 export const storyPulseRouter = router({
   profile: router({
     me: protectedProcedure.query(({ ctx }) => ensureUserProfile(ctx.user.id, ctx.user.name)),
-    update: protectedProcedure.input(z.object({ displayName, bio })).mutation(async ({ ctx, input }) => {
-      const profile = await updateUserProfile(ctx.user.id, input.displayName, input.bio);
+    update: protectedProcedure.input(z.object({ displayName, username, bio })).mutation(async ({ ctx, input }) => {
+      const normalizedUsername = normalizeUsername(input.username);
+      const usernameOwner = await getUserProfileByUsername(normalizedUsername);
+      if (usernameOwner && usernameOwner.userId !== ctx.user.id) throw new TRPCError({ code: "CONFLICT", message: "That username is already taken" });
+      const profile = await updateUserProfile(ctx.user.id, input.displayName, normalizedUsername, input.bio);
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not update profile" });
       return profile;
     }),

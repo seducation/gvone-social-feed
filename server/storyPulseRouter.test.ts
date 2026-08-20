@@ -9,6 +9,7 @@ vi.mock("./db", async () => {
     addStoryRepost: vi.fn(),
     ensureUserProfile: vi.fn(),
     getStoryDiscussion: vi.fn(),
+    getUserProfileByUsername: vi.fn(),
     listProfilePulse: vi.fn(),
     listStoryReposts: vi.fn(),
     openStoryDiscussion: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock("./db", async () => {
   };
 });
 
-import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -56,6 +57,23 @@ describe("Story Pulse", () => {
     await expect(appRouter.createCaller(createContext()).storyPulse.reply({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "The evidence is in the launch data" })).resolves.toMatchObject({ id: 31, parentPostId: 30, quotedPostId: 30 });
 
     expect(addStoryReply).toHaveBeenCalledWith(42, 12, 30, "The evidence is in the launch data", 30);
+  });
+
+  it("normalizes a member username before persisting a profile update", async () => {
+    vi.mocked(getUserProfileByUsername).mockResolvedValue(undefined);
+    vi.mocked(updateUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", username: "reader_orbit", bio: "Signals and launches" } as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.update({ displayName: "Reader", username: "Reader_Orbit", bio: "Signals and launches" })).resolves.toMatchObject({ username: "reader_orbit" });
+
+    expect(getUserProfileByUsername).toHaveBeenCalledWith("reader_orbit");
+    expect(updateUserProfile).toHaveBeenCalledWith(42, "Reader", "reader_orbit", "Signals and launches");
+  });
+
+  it("rejects a username already owned by another member", async () => {
+    vi.mocked(getUserProfileByUsername).mockResolvedValue({ userId: 7, displayName: "Orbit", username: "orbit", bio: null } as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.update({ displayName: "Reader", username: "orbit" })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(updateUserProfile).not.toHaveBeenCalled();
   });
 
   it("returns a member profile together with that member's repost activity", async () => {

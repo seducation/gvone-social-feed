@@ -150,10 +150,20 @@ function defaultProfileName(name: string | null | undefined) {
   return (name?.trim() || "gvone member").slice(0, 80);
 }
 
+export function defaultProfileUsername(userId: number) {
+  return `member_${userId}`;
+}
+
 export async function getUserProfile(userId: number): Promise<UserProfile | undefined> {
   const db = await getDb();
   if (!db) return undefined;
   return (await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1))[0];
+}
+
+export async function getUserProfileByUsername(username: string): Promise<UserProfile | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(userProfiles).where(eq(userProfiles.username, username)).limit(1))[0];
 }
 
 export async function ensureUserProfile(userId: number, fallbackName?: string | null): Promise<UserProfile | undefined> {
@@ -162,21 +172,21 @@ export async function ensureUserProfile(userId: number, fallbackName?: string | 
   const db = await getDb();
   if (!db) return undefined;
   try {
-    await db.insert(userProfiles).values({ userId, displayName: defaultProfileName(fallbackName) });
+    await db.insert(userProfiles).values({ userId, displayName: defaultProfileName(fallbackName), username: defaultProfileUsername(userId) });
   } catch {
     // A concurrent request may have created the profile first; read it below.
   }
   return getUserProfile(userId);
 }
 
-export async function updateUserProfile(userId: number, displayName: string, bio?: string | null) {
+export async function updateUserProfile(userId: number, displayName: string, username: string, bio?: string | null) {
   const db = await getDb();
   if (!db) return undefined;
   const existing = await getUserProfile(userId);
   if (existing) {
-    await db.update(userProfiles).set({ displayName, bio: bio || null, updatedAt: new Date() }).where(eq(userProfiles.userId, userId));
+    await db.update(userProfiles).set({ displayName, username, bio: bio || null, updatedAt: new Date() }).where(eq(userProfiles.userId, userId));
   } else {
-    await db.insert(userProfiles).values({ userId, displayName, bio: bio || null });
+    await db.insert(userProfiles).values({ userId, displayName, username, bio: bio || null });
   }
   return getUserProfile(userId);
 }
@@ -222,9 +232,11 @@ export async function listStoryReposts(discussionId: number) {
     quotedPostId: storyDiscussionPosts.quotedPostId,
     createdAt: storyDiscussionPosts.createdAt,
     displayName: userProfiles.displayName,
+    username: userProfiles.username,
     bio: userProfiles.bio,
     quotedContent: quotedStoryDiscussionPost.content,
     quotedDisplayName: quotedStoryProfile.displayName,
+    quotedUsername: quotedStoryProfile.username,
   }).from(storyDiscussionPosts)
     .leftJoin(userProfiles, eq(storyDiscussionPosts.userId, userProfiles.userId))
     .leftJoin(quotedStoryDiscussionPost, eq(storyDiscussionPosts.quotedPostId, quotedStoryDiscussionPost.id))
@@ -276,8 +288,10 @@ export async function listProfilePulse(userId: number) {
     storyUrl: storyDiscussions.storyUrl,
     parentContent: parentStoryDiscussionPost.content,
     parentDisplayName: parentStoryProfile.displayName,
+    parentUsername: parentStoryProfile.username,
     quotedContent: quotedStoryDiscussionPost.content,
     quotedDisplayName: quotedStoryProfile.displayName,
+    quotedUsername: quotedStoryProfile.username,
   }).from(storyDiscussionPosts)
     .innerJoin(storyDiscussions, eq(storyDiscussionPosts.discussionId, storyDiscussions.id))
     .leftJoin(parentStoryDiscussionPost, eq(storyDiscussionPosts.parentPostId, parentStoryDiscussionPost.id))

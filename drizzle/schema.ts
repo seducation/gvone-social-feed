@@ -85,9 +85,12 @@ export const chatMessages = mysqlTable("chat_messages", {
 export const userProfiles = mysqlTable("user_profiles", {
   userId: int("userId").primaryKey(),
   displayName: varchar("displayName", { length: 80 }).notNull(),
+  username: varchar("username", { length: 30 }).notNull(),
   bio: varchar("bio", { length: 280 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  username: uniqueIndex("user_profiles_username").on(table.username),
+}));
 
 export const storyDiscussions = mysqlTable("story_discussions", {
   id: int("id").autoincrement().primaryKey(),

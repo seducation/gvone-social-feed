@@ -78,6 +78,13 @@
       "when": 1787220188759,
       "tag": "0010_funny_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1787220748047,
+      "tag": "0011_tricky_magma",
+      "breakpoints": true
     }
   ]
 }

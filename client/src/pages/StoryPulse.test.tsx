@@ -11,11 +11,11 @@ const mocks = vi.hoisted(() => ({
   invalidateProfile: vi.fn().mockResolvedValue(undefined),
   pulse: {
     discussion: { id: 12, storyUrl: "https://example.com/launch" },
-    reposts: [{ id: 30, discussionId: 12, userId: 7, displayName: "Orbit", bio: null, content: "What does this launch prove?", createdAt: new Date("2026-08-20T08:00:00Z"), replies: [{ id: 31, discussionId: 12, userId: 42, displayName: "Reader", bio: null, parentPostId: 30, quotedPostId: 30, quotedDisplayName: "Orbit", quotedContent: "What does this launch prove?", content: "It verifies the new engine performance.", createdAt: new Date("2026-08-20T08:10:00Z") }] }],
+    reposts: [{ id: 30, discussionId: 12, userId: 7, displayName: "Orbit", username: "orbit", bio: null, content: "What does this launch prove?", createdAt: new Date("2026-08-20T08:00:00Z"), replies: [{ id: 31, discussionId: 12, userId: 42, displayName: "Reader", username: "reader", bio: null, parentPostId: 30, quotedPostId: 30, quotedDisplayName: "Orbit", quotedUsername: "orbit", quotedContent: "What does this launch prove?", content: "It verifies the new engine performance.", createdAt: new Date("2026-08-20T08:10:00Z") }] }],
   },
   profile: {
-    profile: { userId: 42, displayName: "Reader", bio: "Signals and launches" },
-    reposts: [{ id: 30, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: null, quotedPostId: null, content: "What does this launch prove?", createdAt: new Date("2026-08-20T08:00:00Z") }, { id: 31, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: 30, quotedPostId: 30, parentDisplayName: "Orbit", parentContent: "What does this launch prove?", quotedDisplayName: "Orbit", quotedContent: "What does this launch prove?", content: "It verifies the new engine performance.", createdAt: new Date("2026-08-20T08:10:00Z") }],
+    profile: { userId: 42, displayName: "Reader", username: "reader", bio: "Signals and launches" },
+    reposts: [{ id: 30, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: null, quotedPostId: null, content: "What does this launch prove?", createdAt: new Date("2026-08-20T08:00:00Z") }, { id: 31, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: 30, quotedPostId: 30, parentDisplayName: "Orbit", parentUsername: "orbit", parentContent: "What does this launch prove?", quotedDisplayName: "Orbit", quotedUsername: "orbit", quotedContent: "What does this launch prove?", content: "It verifies the new engine performance.", createdAt: new Date("2026-08-20T08:10:00Z") }],
   },
 }));
 
@@ -66,13 +66,15 @@ describe("Story Pulse and member profile", () => {
     fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "My answer" } });
     fireEvent.click(screen.getByRole("button", { name: "Post answer" }));
     expect(mocks.replyMutate).toHaveBeenCalledWith({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "My answer" });
-    expect(screen.getByText("In answer to Orbit’s question")).toBeTruthy();
+    expect(screen.getByText("@orbit")).toBeTruthy();
+    expect(screen.getByText("In answer to @orbit’s question")).toBeTruthy();
   });
 
   it("separates question Threads from quote answers in the member profile", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
+    expect(screen.getByText("@reader")).toBeTruthy();
     expect(screen.getByText("Your questions")).toBeTruthy();
     expect(screen.getByText("Your answers")).toBeTruthy();
     expect(screen.getByText("1 question asked")).toBeTruthy();
@@ -80,5 +82,9 @@ describe("Story Pulse and member profile", () => {
     expect(screen.getAllByText("Launch update").length).toBe(2);
     expect(screen.getAllByText("What does this launch prove?").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("It verifies the new engine performance.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByPlaceholderText("unique_username"), { target: { value: "reader_orbit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(mocks.profileUpdateMutate).toHaveBeenCalledWith({ displayName: "Reader", username: "reader_orbit", bio: "Signals and launches" });
   });
 });

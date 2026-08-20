@@ -223,3 +223,8 @@
 - [x] Reframe top-level Story Pulse Threads as member questions about the RSS story
 - [x] Present every child reply as a quote answer to its parent question
 - [x] Separate profile activity into asked questions and submitted answers
+- [x] Add a unique, immutable-identifier username field to every profile
+- [x] Safely backfill existing profiles with unique default usernames
+- [x] Validate and enforce username uniqueness in protected profile updates
+- [x] Add username editing and @username attribution to Story Pulse and profile views
+- [x] Add username uniqueness, default, validation, and attribution regression coverage
