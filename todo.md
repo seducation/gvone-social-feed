@@ -215,3 +215,11 @@
 - [x] Add regression coverage for the Thread terminology across Story Pulse and profiles
 - [x] Replace the home header’s top-left black brand icon with an accessible profile icon and link
 - [x] Add regression coverage for home-header profile navigation
+- [x] Add one non-nested reply level beneath each Story Pulse Thread
+- [x] Let a reply optionally quote one Thread with author and original-story attribution
+- [x] Prevent replies to replies while preserving a clear open-original navigation path
+- [x] Add separate profile sections for Threads and replies
+- [x] Add reply-depth, quote-attribution, ownership, and navigation regression coverage
+- [x] Reframe top-level Story Pulse Threads as member questions about the RSS story
+- [x] Present every child reply as a quote answer to its parent question
+- [x] Separate profile activity into asked questions and submitted answers

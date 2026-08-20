@@ -71,6 +71,13 @@
       "when": 1787217640097,
       "tag": "0009_spicy_corsair",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1787220188759,
+      "tag": "0010_funny_katie_power",
+      "breakpoints": true
     }
   ]
 }

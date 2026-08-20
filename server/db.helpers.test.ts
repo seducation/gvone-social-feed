@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ownsResource, sortArticlesByPublished } from "./db";
+import { isReplyableStoryThread, ownsResource, sortArticlesByPublished } from "./db";
 
 describe("RSS privacy and unified-feed helpers", () => {
   it("only treats resources belonging to the current user as owned", () => {
@@ -15,5 +15,11 @@ describe("RSS privacy and unified-feed helpers", () => {
       { id: 3, publishedAt: null },
     ]);
     expect(sorted.map((article) => article.id)).toEqual([2, 1, 3]);
+  });
+
+  it("permits answers only beneath top-level question Threads", () => {
+    expect(isReplyableStoryThread({ parentPostId: null })).toBe(true);
+    expect(isReplyableStoryThread({ parentPostId: 14 })).toBe(false);
+    expect(isReplyableStoryThread(undefined)).toBe(false);
   });
 });

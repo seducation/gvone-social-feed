@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { alias } from "drizzle-orm/mysql-core";
 import {
   ChatConversation,
   ChatMessage,
@@ -25,6 +26,10 @@ import type { ParsedFeed } from "./feedParser";
 import { buildBranchHistory, type BranchHistoryMessage, type BranchNode, type DirectBranchMessage } from "./chatMemory";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+const quotedStoryDiscussionPost = alias(storyDiscussionPosts, "quoted_story_discussion_post");
+const quotedStoryProfile = alias(userProfiles, "quoted_story_profile");
+const parentStoryDiscussionPost = alias(storyDiscussionPosts, "parent_story_discussion_post");
+const parentStoryProfile = alias(userProfiles, "parent_story_profile");
 export async function getDb() { if (!_db && process.env.DATABASE_URL) { try { _db = drizzle(process.env.DATABASE_URL); } catch { _db = null; } } return _db; }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -36,6 +41,7 @@ export async function getUserByOpenId(openId: string) { const db = await getDb()
 
 export function ownsResource(userId: number, resource: { userId: number } | undefined) { return Boolean(resource && resource.userId === userId); }
 export function sortArticlesByPublished<T extends { publishedAt: Date | null }>(articles: T[]) { return [...articles].sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)); }
+export function isReplyableStoryThread<T extends { parentPostId: number | null }>(post: T | undefined): post is T & { parentPostId: null } { return Boolean(post && post.parentPostId === null); }
 export const ARTICLE_HISTORY_LIMIT = 500;
 
 export async function listFeeds(userId: number, enabledOnly = false) { const db = await getDb(); if (!db) return []; return db.select().from(rssFeeds).where(enabledOnly ? and(eq(rssFeeds.userId, userId), eq(rssFeeds.isEnabled, true)) : eq(rssFeeds.userId, userId)).orderBy(desc(rssFeeds.createdAt)); }
@@ -185,6 +191,12 @@ export async function getStoryDiscussion(id: number): Promise<StoryDiscussion | 
   return (await db.select().from(storyDiscussions).where(eq(storyDiscussions.id, id)).limit(1))[0];
 }
 
+export async function getStoryDiscussionPost(id: number): Promise<StoryDiscussionPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(storyDiscussionPosts).where(eq(storyDiscussionPosts.id, id)).limit(1))[0];
+}
+
 export async function openStoryDiscussion(input: StoryPulseInput): Promise<StoryDiscussion | undefined> {
   const db = await getDb();
   if (!db) return undefined;
@@ -201,15 +213,32 @@ export async function openStoryDiscussion(input: StoryPulseInput): Promise<Story
 export async function listStoryReposts(discussionId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
+  const rows = await db.select({
     id: storyDiscussionPosts.id,
     discussionId: storyDiscussionPosts.discussionId,
     userId: storyDiscussionPosts.userId,
     content: storyDiscussionPosts.content,
+    parentPostId: storyDiscussionPosts.parentPostId,
+    quotedPostId: storyDiscussionPosts.quotedPostId,
     createdAt: storyDiscussionPosts.createdAt,
     displayName: userProfiles.displayName,
     bio: userProfiles.bio,
-  }).from(storyDiscussionPosts).leftJoin(userProfiles, eq(storyDiscussionPosts.userId, userProfiles.userId)).where(eq(storyDiscussionPosts.discussionId, discussionId)).orderBy(desc(storyDiscussionPosts.createdAt));
+    quotedContent: quotedStoryDiscussionPost.content,
+    quotedDisplayName: quotedStoryProfile.displayName,
+  }).from(storyDiscussionPosts)
+    .leftJoin(userProfiles, eq(storyDiscussionPosts.userId, userProfiles.userId))
+    .leftJoin(quotedStoryDiscussionPost, eq(storyDiscussionPosts.quotedPostId, quotedStoryDiscussionPost.id))
+    .leftJoin(quotedStoryProfile, eq(quotedStoryDiscussionPost.userId, quotedStoryProfile.userId))
+    .where(eq(storyDiscussionPosts.discussionId, discussionId))
+    .orderBy(asc(storyDiscussionPosts.createdAt));
+  const repliesByParent = new Map<number, typeof rows>();
+  for (const row of rows) {
+    if (row.parentPostId !== null) repliesByParent.set(row.parentPostId, [...(repliesByParent.get(row.parentPostId) ?? []), row]);
+  }
+  return rows.filter((row) => row.parentPostId === null).map((thread) => ({
+    ...thread,
+    replies: repliesByParent.get(thread.id) ?? [],
+  })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export async function addStoryRepost(userId: number, discussionId: number, content: string): Promise<StoryDiscussionPost | undefined> {
@@ -220,14 +249,41 @@ export async function addStoryRepost(userId: number, discussionId: number, conte
   return (await db.select().from(storyDiscussionPosts).where(eq(storyDiscussionPosts.id, Number(result[0].insertId))).limit(1))[0];
 }
 
+export async function addStoryReply(userId: number, discussionId: number, parentPostId: number, content: string, quotedPostId?: number): Promise<StoryDiscussionPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const parent = await getStoryDiscussionPost(parentPostId);
+  if (!isReplyableStoryThread(parent) || parent.discussionId !== discussionId) return undefined;
+  if (quotedPostId) {
+    const quoted = await getStoryDiscussionPost(quotedPostId);
+    if (!isReplyableStoryThread(quoted) || quoted.discussionId !== discussionId) return undefined;
+  }
+  const result = await db.insert(storyDiscussionPosts).values({ userId, discussionId, parentPostId, quotedPostId: quotedPostId ?? null, content });
+  await db.update(storyDiscussions).set({ updatedAt: new Date() }).where(eq(storyDiscussions.id, discussionId));
+  return getStoryDiscussionPost(Number(result[0].insertId));
+}
+
 export async function listProfilePulse(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select({
     id: storyDiscussionPosts.id,
+    parentPostId: storyDiscussionPosts.parentPostId,
+    quotedPostId: storyDiscussionPosts.quotedPostId,
     content: storyDiscussionPosts.content,
     createdAt: storyDiscussionPosts.createdAt,
     discussionId: storyDiscussions.id,
     storyUrl: storyDiscussions.storyUrl,
-  }).from(storyDiscussionPosts).innerJoin(storyDiscussions, eq(storyDiscussionPosts.discussionId, storyDiscussions.id)).where(eq(storyDiscussionPosts.userId, userId)).orderBy(desc(storyDiscussionPosts.createdAt));
+    parentContent: parentStoryDiscussionPost.content,
+    parentDisplayName: parentStoryProfile.displayName,
+    quotedContent: quotedStoryDiscussionPost.content,
+    quotedDisplayName: quotedStoryProfile.displayName,
+  }).from(storyDiscussionPosts)
+    .innerJoin(storyDiscussions, eq(storyDiscussionPosts.discussionId, storyDiscussions.id))
+    .leftJoin(parentStoryDiscussionPost, eq(storyDiscussionPosts.parentPostId, parentStoryDiscussionPost.id))
+    .leftJoin(parentStoryProfile, eq(parentStoryDiscussionPost.userId, parentStoryProfile.userId))
+    .leftJoin(quotedStoryDiscussionPost, eq(storyDiscussionPosts.quotedPostId, quotedStoryDiscussionPost.id))
+    .leftJoin(quotedStoryProfile, eq(quotedStoryDiscussionPost.userId, quotedStoryProfile.userId))
+    .where(eq(storyDiscussionPosts.userId, userId))
+    .orderBy(desc(storyDiscussionPosts.createdAt));
 }

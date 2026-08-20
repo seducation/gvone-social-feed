@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
-import { addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
 
 const displayName = z.string().trim().min(1).max(80);
 const bio = z.string().trim().max(280).optional();
@@ -46,5 +46,18 @@ export const storyPulseRouter = router({
     const repost = await addStoryRepost(ctx.user.id, discussion.id, input.content);
     if (!repost) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not publish repost" });
     return repost;
+  }),
+  reply: protectedProcedure.input(z.object({
+    discussionId: z.number().int().positive(),
+    parentPostId: z.number().int().positive(),
+    quotedPostId: z.number().int().positive().optional(),
+    content: repostContent,
+  })).mutation(async ({ ctx, input }) => {
+    const discussion = await getStoryDiscussion(input.discussionId);
+    if (!discussion) throw new TRPCError({ code: "NOT_FOUND", message: "Story Pulse not found" });
+    if (!(await ensureUserProfile(ctx.user.id, ctx.user.name))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load profile" });
+    const reply = await addStoryReply(ctx.user.id, discussion.id, input.parentPostId, input.content, input.quotedPostId);
+    if (!reply) throw new TRPCError({ code: "BAD_REQUEST", message: "Replies can only respond to a Thread in this Story Pulse" });
+    return reply;
   }),
 });

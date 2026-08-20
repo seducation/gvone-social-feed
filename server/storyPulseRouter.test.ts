@@ -5,6 +5,7 @@ vi.mock("./db", async () => {
   const actual = await vi.importActual<typeof import("./db")>("./db");
   return {
     ...actual,
+    addStoryReply: vi.fn(),
     addStoryRepost: vi.fn(),
     ensureUserProfile: vi.fn(),
     getStoryDiscussion: vi.fn(),
@@ -15,7 +16,7 @@ vi.mock("./db", async () => {
   };
 });
 
-import { addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, listProfilePulse, listStoryReposts, openStoryDiscussion } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -45,6 +46,16 @@ describe("Story Pulse", () => {
     await expect(appRouter.createCaller(createContext()).storyPulse.repost({ discussionId: 12, content: "Worth watching" })).resolves.toMatchObject({ id: 30, content: "Worth watching" });
 
     expect(addStoryRepost).toHaveBeenCalledWith(42, 12, "Worth watching");
+  });
+
+  it("publishes a quote answer directly beneath a question Thread", async () => {
+    vi.mocked(getStoryDiscussion).mockResolvedValue({ id: 12, storyUrl: "https://example.com/launch" } as never);
+    vi.mocked(ensureUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", bio: null } as never);
+    vi.mocked(addStoryReply).mockResolvedValue({ id: 31, discussionId: 12, userId: 42, parentPostId: 30, quotedPostId: 30, content: "The evidence is in the launch data", createdAt: new Date() } as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.reply({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "The evidence is in the launch data" })).resolves.toMatchObject({ id: 31, parentPostId: 30, quotedPostId: 30 });
+
+    expect(addStoryReply).toHaveBeenCalledWith(42, 12, 30, "The evidence is in the launch data", 30);
   });
 
   it("returns a member profile together with that member's repost activity", async () => {

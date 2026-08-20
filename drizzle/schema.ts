@@ -104,10 +104,14 @@ export const storyDiscussionPosts = mysqlTable("story_discussion_posts", {
   discussionId: int("discussionId").notNull(),
   userId: int("userId").notNull(),
   content: text("content"),
+  parentPostId: int("parentPostId"),
+  quotedPostId: int("quotedPostId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   discussionCreated: index("story_discussion_posts_discussion_created").on(table.discussionId, table.createdAt),
   userCreated: index("story_discussion_posts_user_created").on(table.userId, table.createdAt),
+  parentCreated: index("story_discussion_posts_parent_created").on(table.parentPostId, table.createdAt),
+  quotedPost: index("story_discussion_posts_quoted_post").on(table.quotedPostId),
 }));
 
 export type User = typeof users.$inferSelect;
