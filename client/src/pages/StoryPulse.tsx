@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { publicStoryProviderLabel } from "@/lib/storyProvider";
 
 function initial(name: string | null) {
   return (name?.trim().charAt(0) || "G").toUpperCase();
@@ -35,7 +36,6 @@ export default function StoryPulse() {
   const [answerTarget, setAnswerTarget] = useState<{ id: number; displayName: string | null; username: string | null; content: string | null } | null>(null);
   const pulse = trpc.storyPulse.get.useQuery({ discussionId }, { enabled: auth.isAuthenticated && Number.isFinite(discussionId) && discussionId > 0 });
   const rssArticles = trpc.feed.articles.useQuery(undefined, { enabled: auth.isAuthenticated });
-  const dashboard = trpc.dashboard.useQuery(undefined, { enabled: auth.isAuthenticated });
   const repost = trpc.storyPulse.repost.useMutation({
     onSuccess: async () => {
       setContent("");
@@ -61,15 +61,14 @@ export default function StoryPulse() {
   if (!discussion || !pulse.data) return <main className="grid min-h-screen place-items-center bg-[#f7f8fa] p-6 text-center"><div><h1 className="text-2xl font-semibold">Story Pulse unavailable</h1><Link href="/" className="mt-4 inline-block text-sm font-semibold text-[#635bff]">Return to reader</Link></div></main>;
 
   const article = (rssArticles.data ?? []).find((item) => normalizeStoryUrl(item.link) === discussion.storyUrl);
-  const feed = article ? dashboard.data?.feeds.find((item) => item.id === article.feedId) : undefined;
-  const sourceLabel = feed?.customTitle || feed?.title || new URL(discussion.storyUrl).hostname;
+  const sourceLabel = publicStoryProviderLabel(discussion.storyUrl);
   const storyTitle = article?.title || "RSS story reference";
   const reposts = pulse.data.reposts;
 
   return <div className="min-h-screen bg-[#f7f8fa] text-[#14161a]">
     <header className="flex h-[76px] items-center border-b border-[#e6e8ed] bg-[#f7f8fa]/90 px-5 backdrop-blur-xl sm:px-8">
       <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#68707d] hover:text-[#635bff]"><ArrowLeft className="h-4 w-4" /> Reader</Link>
-      <div className="ml-5 flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#17171d] text-white"><Radio className="h-4 w-4" /></span><span className="text-lg font-semibold tracking-[-.03em]">Story <span className="text-[#635bff]">Pulse</span></span></div>
+      <div className="ml-5 flex min-w-0 items-center gap-2"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#17171d] text-white"><Radio className="h-4 w-4" /></span><div className="min-w-0"><div className="truncate text-lg font-semibold tracking-[-.03em]">{sourceLabel}</div><div className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#8a929f]">RSS story · Story Pulse</div></div></div>
       <Link href="/profile" className="ml-auto inline-flex items-center gap-2 rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2 text-sm font-semibold text-[#596270] hover:border-[#635bff] hover:text-[#635bff]"><Sparkles className="h-4 w-4" /> Profile</Link>
     </header>
     <main className="mx-auto max-w-3xl px-5 py-8 sm:px-8">

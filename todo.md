@@ -231,3 +231,12 @@
 - [x] Replace generic Story Pulse question language with branded Thread language
 - [x] Replace generic Story Pulse answer language with branded Echo language
 - [x] Update profile labels, empty states, attribution copy, and terminology regressions
+- [x] Surface the actual RSS feed provider prominently in the Story Pulse story header
+- [x] Preserve a readable source-domain fallback when provider metadata is unavailable
+- [x] Add Story Pulse provider-header regression coverage
+- [x] Resolve source identity only from saved feed metadata or the RSS story domain, without external provider discovery
+- [x] Show public-safe URL-derived provider labels on profile Thread and Echo cards
+- [x] Keep owner-defined feed titles out of visitor-facing profile activity
+- [x] Add provider extraction and custom-title privacy regression coverage
+- [x] Replaced by user clarification: prefer public YouTube channel handles for YouTube Story Pulse labels while retaining neutral domains for other providers
+- [x] Use only canonical provider hostnames for all public Story Pulse and profile activity labels
