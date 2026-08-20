@@ -273,3 +273,6 @@
 - [x] Keep Channel roll call in its current reader position while adding a nearby Visit community action
 - [x] Replaced by finalized direction: scope the active provider community action at the top-level reader controls
 - [x] Place Visit community beside the reader Refresh control rather than inside Channel roll call
+- [x] Add a Visit all communities action when the reader is in the All view
+- [x] Refine the reader top-control spacing and responsive layout after adding community actions
+- [x] Add All-view community navigation and top-control layout regression coverage

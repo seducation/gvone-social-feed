@@ -581,4 +581,13 @@ describe("dashboard reload refresh controls", () => {
       feed.customTitle = originalLabel;
     }
   });
+
+  it("offers Visit all communities in All and replaces it with the active provider community", () => {
+    render(<Home />);
+
+    expect(screen.getByRole("link", { name: "Visit all communities" }).getAttribute("href")).toBe("/communities");
+    fireEvent.click(screen.getByRole("button", { name: "Show YouTube channels" }));
+    expect(screen.queryByRole("link", { name: "Visit all communities" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Visit m.youtube.com community" }).getAttribute("href")).toBe("/community/m.youtube.com");
+  });
 });
