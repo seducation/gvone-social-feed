@@ -267,3 +267,9 @@
 - [x] Show private source labels in the owner’s feed-card source area and Source roll call
 - [x] Preserve provider-domain community links without exposing private labels publicly
 - [x] Add private-label visibility and public-exclusion regression coverage
+- [x] Make each private Source roll call item open its exact saved RSS source feed
+- [x] Add selected-source reader state with a clear return to the current channel
+- [x] Add private label navigation and exact-feed filtering regression coverage
+- [x] Keep Channel roll call in its current reader position while adding a nearby Visit community action
+- [x] Replaced by finalized direction: scope the active provider community action at the top-level reader controls
+- [x] Place Visit community beside the reader Refresh control rather than inside Channel roll call

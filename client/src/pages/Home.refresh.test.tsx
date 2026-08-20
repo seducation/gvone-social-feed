@@ -562,4 +562,23 @@ describe("dashboard reload refresh controls", () => {
       feed.customTitle = originalLabel;
     }
   });
+
+  it("opens exact private source stories from Channel roll call and keeps Visit community beside Refresh", () => {
+    const feed = mocks.dashboardData.feeds[0] as { customTitle: string | null };
+    const originalLabel = feed.customTitle;
+    feed.customTitle = "Space related";
+
+    try {
+      render(<Home />);
+      fireEvent.click(screen.getByRole("button", { name: "Show YouTube channels" }));
+      expect(screen.getByRole("link", { name: "Visit m.youtube.com community" }).getAttribute("href")).toBe("/community/m.youtube.com");
+      fireEvent.click(screen.getByRole("button", { name: "Open Space related source" }));
+      expect(screen.getByRole("heading", { name: "Space related" })).toBeTruthy();
+      expect(screen.getByText("NASA update")).toBeTruthy();
+      expect(screen.queryByText("Reddit update")).toBeNull();
+      expect(screen.getByRole("button", { name: "Back to channel" })).toBeTruthy();
+    } finally {
+      feed.customTitle = originalLabel;
+    }
+  });
 });
