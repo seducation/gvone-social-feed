@@ -292,7 +292,7 @@ export async function addStoryReply(userId: number, discussionId: number, parent
 export async function listProfilePulse(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
+  const rows = await db.select({
     id: storyDiscussionPosts.id,
     parentPostId: storyDiscussionPosts.parentPostId,
     quotedPostId: storyDiscussionPosts.quotedPostId,
@@ -314,6 +314,7 @@ export async function listProfilePulse(userId: number) {
     .leftJoin(quotedStoryProfile, eq(quotedStoryDiscussionPost.userId, quotedStoryProfile.userId))
     .where(eq(storyDiscussionPosts.userId, userId))
     .orderBy(desc(storyDiscussionPosts.createdAt));
+  return Promise.all(rows.map(async (row) => ({ ...row, story: await getTopicThreadStory(userId, row.storyUrl) })));
 }
 
 export function canonicalProviderHostname(value: string) {
@@ -440,7 +441,8 @@ export async function listProfileTopicActivity(userId: number) {
   const threads = await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt }).from(topicCommunityThreads)
     .innerJoin(topicCommunities, eq(topicCommunityThreads.communityId, topicCommunities.id))
     .where(eq(topicCommunityThreads.userId, userId));
-  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...threads.map((thread) => ({ ...thread, kind: "thread" as const }))].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  const enrichedThreads = await Promise.all(threads.map(async (thread) => ({ ...thread, kind: "thread" as const, story: thread.sourceStoryUrl ? await getTopicThreadStory(userId, thread.sourceStoryUrl) : undefined })));
+  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...enrichedThreads].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
 export type TopicCommunityInput = {

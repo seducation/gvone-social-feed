@@ -17,6 +17,7 @@ type OverviewItem = {
   href: string;
   createdAt: Date | string;
   tone: "lilac" | "blue" | "rose" | "amber";
+  visual?: { thumbnailUrl?: string | null; videoUrl?: string | null; videoMimeType?: string | null };
 };
 
 const preview = (value: string | null | undefined, fallback: string) => (
@@ -24,11 +25,27 @@ const preview = (value: string | null | undefined, fallback: string) => (
 ).slice(0, 180);
 
 const cardTone: Record<OverviewItem["tone"], string> = {
-  lilac: "border-[#ddd8ff] bg-[#faf9ff] hover:border-[#afa3ff]",
-  blue: "border-[#d4e6ff] bg-[#f7fbff] hover:border-[#92c4ff]",
-  rose: "border-[#f4dbe6] bg-[#fff9fb] hover:border-[#ebb3cb]",
-  amber: "border-[#f2e2c4] bg-[#fffaf1] hover:border-[#e5bd7a]",
+  lilac: "border-[#e4e0fb] hover:border-[#afa3ff]",
+  blue: "border-[#dce9f8] hover:border-[#92c4ff]",
+  rose: "border-[#f1e0e8] hover:border-[#ebb3cb]",
+  amber: "border-[#eee3cf] hover:border-[#e5bd7a]",
 };
+
+function getYouTubePreview(videoUrl: string | null | undefined) {
+  const match = videoUrl?.match(/(?:youtube\.com\/embed\/|youtu\.be\/)([^?&#/]+)/i);
+  return match?.[1] ? `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg` : null;
+}
+
+function ActivityVisual({ item }: { item: OverviewItem }) {
+  const visual = item.visual;
+  const imageUrl = visual?.thumbnailUrl || getYouTubePreview(visual?.videoUrl);
+  const isNativeVideo = Boolean(visual?.videoUrl && visual.videoMimeType && visual.videoMimeType !== "text/html");
+  if (!imageUrl && !isNativeVideo) return null;
+  return <div className="relative -mx-3.5 -mt-3.5 mb-3 overflow-hidden rounded-t-[1.45rem] bg-[#eef0f4]">
+    {isNativeVideo ? <video muted playsInline preload="metadata" src={visual?.videoUrl ?? undefined} poster={imageUrl ?? undefined} className="aspect-[4/3] w-full object-cover" /> : <img src={imageUrl ?? undefined} alt={`Preview for ${item.title}`} className="aspect-[4/3] w-full object-cover" loading="lazy" />}
+    <span className="absolute bottom-2 right-2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-white">{isNativeVideo ? "Video" : "Story"}</span>
+  </div>;
+}
 
 export default function Profile() {
   const auth = useAuth();
@@ -84,6 +101,7 @@ export default function Profile() {
       href: `/pulse/${item.discussionId}#thread-${item.parentPostId ?? item.id}`,
       createdAt: item.createdAt,
       tone: "lilac" as const,
+      visual: item.story ? { thumbnailUrl: item.story.thumbnailUrl, videoUrl: item.story.videoUrl, videoMimeType: item.story.videoMimeType } : undefined,
     })),
     ...providerPosts.map((post: any) => ({
       key: `provider-${post.id}`,
@@ -104,8 +122,13 @@ export default function Profile() {
       href: `/topics/${item.communitySlug}/discussion/${item.kind}/${item.id}`,
       createdAt: item.createdAt,
       tone: (item.kind === "thread" ? "amber" : "rose") as OverviewItem["tone"],
+      visual: item.story ? { thumbnailUrl: item.story.thumbnailUrl, videoUrl: item.story.videoUrl, videoMimeType: item.story.videoMimeType } : undefined,
     })),
   ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()), [pulse, providerPosts, topicActivity]);
+  const overviewColumns = useMemo(() => [
+    overviewItems.filter((_, index) => index % 2 === 0),
+    overviewItems.filter((_, index) => index % 2 === 1),
+  ], [overviewItems]);
   const tabs: { id: ActivityTab; label: string; count: number }[] = [
     { id: "all", label: "Overview", count: overviewItems.length },
     { id: "stories", label: "Story Pulse", count: questions.length + replies.length },
@@ -140,7 +163,7 @@ export default function Profile() {
         <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Activity board</h2><p className="mt-1 text-sm text-[#7d8794]">Every contribution you have shared, arranged in a compact visual collection.</p></div><span className="text-xs font-semibold text-[#8b7ade]">{tabs.find(item => item.id === tab)?.count ?? 0} items</span></div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1">{tabs.map(item => <button key={item.id} onClick={() => setTab(item.id)} aria-pressed={tab === item.id} className={`whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold ${tab === item.id ? "bg-[#635bff] text-white" : "bg-[#f3f2ff] text-[#68707d] hover:bg-[#e9e7ff]"}`}>{item.label} <span className="ml-1 opacity-70">{item.count}</span></button>)}</div>
 
-        {tab === "all" && <div className="mt-5">{overviewItems.length > 0 ? <div aria-label="All user activity" data-testid="profile-overview-grid" className="columns-1 gap-3 sm:columns-2 lg:columns-3">{overviewItems.map(item => <Link key={item.key} href={item.href} aria-label={`${item.kind}: ${item.title}`} className={`mb-3 block break-inside-avoid rounded-2xl border p-4 shadow-[0_5px_14px_rgba(30,35,50,.025)] transition-colors ${cardTone[item.tone]}`}><div className="flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[.12em] text-[#7869d4]">{item.kind}</span><span className="max-w-[55%] truncate text-[11px] font-semibold text-[#7d8794]">{item.context}</span></div><h3 className="mt-3 text-sm font-semibold leading-5 text-[#303541]">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#657080]">{item.body}</p><p className="mt-4 text-[11px] font-medium text-[#959da8]">{new Date(item.createdAt).toLocaleDateString()}</p></Link>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#dfe2e8] bg-[#fafbfc] p-8 text-center text-sm text-[#7d8794]">Your posts, Threads, and Replies will appear here as you share them.</div>}</div>}
+        {tab === "all" && <div className="mt-5">{overviewItems.length > 0 ? <div aria-label="All user activity" data-testid="profile-overview-grid" className="mx-auto grid max-w-2xl grid-cols-2 items-start gap-3 sm:gap-5">{overviewColumns.map((column, columnIndex) => <div key={columnIndex} data-testid={`profile-overview-column-${columnIndex}`} className={`space-y-3 sm:space-y-5 ${columnIndex === 1 ? "pt-8 sm:pt-12" : ""}`}>{column.map(item => <Link key={item.key} href={item.href} aria-label={`${item.kind}: ${item.title}`} className={`block overflow-hidden rounded-[1.55rem] border bg-white p-3.5 shadow-[0_7px_18px_rgba(30,35,50,.045)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(30,35,50,.08)] ${cardTone[item.tone]}`}><ActivityVisual item={item} /><div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7869d4]">{item.kind}</span><span className="max-w-[52%] truncate text-[10px] font-semibold text-[#8c95a2]">{item.context}</span></div><h3 className="mt-2 text-sm font-bold leading-[1.13] tracking-[-.02em] text-[#21242b] sm:text-base">{item.title}</h3><p className="mt-2 text-xs leading-5 text-[#7b8491]">{item.body}</p><p className="mt-3 text-[10px] font-medium text-[#a0a7b1]">{new Date(item.createdAt).toLocaleDateString()}</p></Link>)}</div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#dfe2e8] bg-[#fafbfc] p-8 text-center text-sm text-[#7d8794]">Your posts, Threads, and Replies will appear here as you share them.</div>}</div>}
 
         {tab === "stories" && <div className="mt-5 grid gap-3 md:grid-cols-2">{[...questions.map((item: any) => ({ ...item, role: "Thread" })), ...replies.map((item: any) => ({ ...item, role: "Reply" }))].slice(0, 8).map((item: any) => <Link key={`${item.role}-${item.id}`} href={`/pulse/${item.discussionId}#thread-${item.parentPostId ?? item.id}`} className="rounded-2xl border border-[#e5e7ed] p-4 hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageCircleQuestion className="h-3.5 w-3.5" /> {item.role} · {publicStoryProviderLabel(item.storyUrl)}</div><p className="mt-3 line-clamp-3 text-sm leading-6 text-[#596270]">{preview(item.content, "Open the RSS story discussion")}</p></Link>)}</div>}
         {tab === "provider" && <div className="mt-5 grid gap-3 md:grid-cols-2">{providerPosts.slice(0, 8).map((post: any) => <Link key={post.id} href={`/community/${encodeURIComponent(post.providerHostname)}`} className="rounded-2xl border border-[#e5e7ed] p-4 hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageSquarePlus className="h-3.5 w-3.5" /> {post.providerHostname}</div><h3 className="mt-2 font-semibold">{post.title}</h3><p className="mt-2 line-clamp-2 text-sm text-[#68707d]">{preview(post.body, "Open provider post")}</p></Link>)}</div>}

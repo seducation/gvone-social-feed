@@ -330,3 +330,7 @@
 - [x] Redesign Profile Overview as a compact Pinterest-style grid containing all activity types
 - [x] Add responsive Profile Overview grid regression coverage for complete mixed activity rendering
 - [x] Include every available user contribution in the Overview grid without category-based truncation
+- [x] Refine Profile Overview into a strict two-column staggered card grid matching the supplied reference layout
+- [x] Add responsive two-column Profile grid regression coverage and visual verification
+- [x] Surface available owned RSS images and video thumbnails in Profile Overview activity cards
+- [x] Add regression coverage for Profile activity visual media enrichment and rendering
