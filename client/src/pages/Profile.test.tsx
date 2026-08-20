@@ -41,7 +41,10 @@ describe("compact profile activity", () => {
   it("opens the header composer and shows Profile posts in their dedicated activity tab", () => {
     render(<Profile />);
     expect(screen.getAllByRole("button", { name: "Create Profile post" })).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Create Profile post" }));
+    const trigger = screen.getByRole("button", { name: "Create Profile post" });
+    expect(screen.getByTestId("profile-header").lastElementChild).toBe(trigger);
+    expect(trigger.className).toContain("ml-auto");
+    fireEvent.click(trigger);
     const composer = screen.getByRole("dialog", { name: "New Profile post" });
     expect(composer).toBeTruthy();
     expect(screen.getByTestId("profile-activity-board").contains(composer)).toBe(false);

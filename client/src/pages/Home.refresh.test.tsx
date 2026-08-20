@@ -583,7 +583,7 @@ describe("dashboard reload refresh controls", () => {
 
     try {
       render(<Home />);
-      const privateLabelPills = screen.getAllByText("Private · Space related");
+      const privateLabelPills = screen.getAllByText("Space related");
       expect(privateLabelPills.length).toBeGreaterThanOrEqual(2);
       privateLabelPills.forEach((pill) => {
         expect(pill.getAttribute("data-private-label")).toBeTruthy();

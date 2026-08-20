@@ -343,3 +343,5 @@
 - [x] Keep only the Profile header’s top-left plus button as the Profile post composer trigger
 - [x] Remove duplicate Profile post composer controls from Overview and Profile posts areas
 - [x] Render owner-only private RSS labels as distinct pill-shaped tags in the reader
+- [x] Move the Profile post composer plus icon from the top-left to the top-right of the Profile header
+- [x] Remove the word "Private" from owner-only RSS label pills while retaining pill styling
