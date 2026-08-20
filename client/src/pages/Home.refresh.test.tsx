@@ -29,6 +29,7 @@ function installShortsObserver() {
 
 const mocks = vi.hoisted(() => ({
   refreshAllMutate: vi.fn(),
+  storyPulseOpenMutate: vi.fn(),
   setSourceTabOrderMutate: vi.fn(),
   createGroupWithFeedsMutate: vi.fn(),
   setEnabledMutate: vi.fn(),
@@ -98,6 +99,7 @@ vi.mock("@/lib/trpc", () => ({
     },
     assignment: { list: { useQuery: () => ({ data: [] }) }, set: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
     providerCommunity: { list: { useQuery: () => ({ data: mocks.providerCommunities }) }, mine: { useQuery: () => ({ data: mocks.providerCommunities }) }, createPost: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
+    storyPulse: { open: { useMutation: () => ({ mutate: mocks.storyPulseOpenMutate, isPending: false }) } },
   },
 }));
 
@@ -532,12 +534,12 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.queryByText("NASA update")).toBeNull();
   });
 
-  it("opens the provider-community composer from the header plus and exposes Visit community in the source bar", () => {
+  it("opens the provider-community composer from the header plus and exposes # Topics in the source bar", () => {
     render(<Home />);
 
     const postButton = screen.getByRole("button", { name: "Create community post" });
     expect(postButton.closest("header")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Visit community" }).getAttribute("href")).toBe("/communities");
+    expect(screen.getAllByRole("link", { name: "Open Topics" }).some((link) => link.getAttribute("href") === "/topics")).toBe(true);
     fireEvent.click(postButton);
 
     const composer = screen.getByRole("dialog", { name: "Create community post" });

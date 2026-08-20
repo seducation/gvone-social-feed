@@ -295,3 +295,11 @@
 - [x] Add multi-topic selection and optional publishing regression coverage
 - [x] Add ordinary topic posts that members can publish without creating or linking an RSS Thread
 - [x] Show ordinary topic posts as a distinct social feed within the topic page
+- [x] Combine ordinary topic posts and RSS Threads into one newest-first mixed topic feed
+- [x] Move topic post and Thread creation into a compact plus-button composer beside the topic member count
+- [x] Render topic social cards with member identity, optional RSS source reference, Thread label, content, and rounded Reply or Related actions
+- [x] Remove the visible Share to Topic action from reader cards and restore the original Thread entry to Story Pulse
+- [x] Add a Topics shortcut beside the home-header community plus control
+- [x] Add mixed-feed, compact-composer, reader Thread, and Topics-header regression coverage
+- [x] Preserve an optional one-or-more-topic picker inside the RSS Story Thread writing area, with story-only publishing as the default
+- [x] Replace the source-bar Visit community action with a # Topics control that opens the all-topics feed

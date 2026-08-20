@@ -68,14 +68,15 @@ describe("standalone topic communities", () => {
     window.history.pushState({}, "", "/topics/space");
     render(<TopicCommunity />);
 
-    expect(screen.getByText("Topic posts")).toBeTruthy();
+    expect(screen.getByText("Topic feed")).toBeTruthy();
     expect(screen.getByText("Community update")).toBeTruthy();
     expect(screen.getByText("A plain member post without an RSS Thread.")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Topic post"), { target: { value: "A second ordinary post." } });
+    fireEvent.click(screen.getByRole("button", { name: "Create topic post or Thread" }));
+    fireEvent.change(screen.getByPlaceholderText("Share a thought, update, or question…"), { target: { value: "A second ordinary post." } });
     fireEvent.click(screen.getByRole("button", { name: "Publish post" }));
     expect(mocks.createPostMutate).toHaveBeenCalledWith({ slug: "space", title: undefined, body: "A second ordinary post." });
-    expect(screen.getByText("Topic Threads")).toBeTruthy();
-    expect(screen.getByText(/Shared RSS story · example.com/i)).toBeTruthy();
+    expect(screen.getAllByText("Thread").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/RSS feed · example.com/i)).toBeTruthy();
     expect(screen.getByText("What does the next mission change?")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
     fireEvent.change(screen.getByLabelText("Your Reply"), { target: { value: "This deserves a closer look." } });

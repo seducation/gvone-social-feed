@@ -612,11 +612,17 @@ export async function getTopicCommunityForUser(userId: number, slug: string) {
     .leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId))
     .where(eq(topicCommunityPosts.communityId, community.id))
     .orderBy(desc(topicCommunityPosts.createdAt));
+  const threads = rows.map((thread) => ({ ...thread, replies: repliesByThread.get(thread.id) ?? [] }));
+  const feed = [
+    ...posts.map((post) => ({ ...post, kind: "post" as const })),
+    ...threads.map((thread) => ({ ...thread, kind: "thread" as const })),
+  ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   return {
     community,
     isMember: await isTopicCommunityMember(userId, community.id),
     memberCount: await countTopicCommunityMembers(community.id),
     posts,
-    threads: rows.map((thread) => ({ ...thread, replies: repliesByThread.get(thread.id) ?? [] })),
+    threads,
+    feed,
   };
 }
