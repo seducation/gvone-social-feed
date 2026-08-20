@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   repostMutate: vi.fn(),
   replyMutate: vi.fn(),
   profileUpdateMutate: vi.fn(),
+  profilePostMutate: vi.fn(),
   invalidatePulse: vi.fn().mockResolvedValue(undefined),
   invalidateProfile: vi.fn().mockResolvedValue(undefined),
   pulse: {
@@ -33,6 +34,7 @@ vi.mock("@/lib/trpc", () => ({
       profile: {
         activity: { useQuery: () => ({ data: mocks.profile, isLoading: false }) },
         update: { useMutation: () => ({ mutate: mocks.profileUpdateMutate, isPending: false }) },
+        createPost: { useMutation: () => ({ mutate: mocks.profilePostMutate, isPending: false }) },
       },
     },
     feed: { articles: { useQuery: () => ({ data: [{ id: 4, feedId: 9, title: "Launch update", link: "https://example.com/launch", description: "A launch briefing", thumbnailUrl: null }], isLoading: false }) } },
@@ -50,6 +52,7 @@ describe("Story Pulse and member profile", () => {
     mocks.repostMutate.mockClear();
     mocks.replyMutate.mockClear();
     mocks.profileUpdateMutate.mockClear();
+    mocks.profilePostMutate.mockClear();
     window.history.pushState({}, "", "/");
   });
 

@@ -1,13 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
-import { addStoryReply, addStoryRepost, createTopicCommunityThread, ensureUserProfile, getStoryDiscussion, getTopicCommunityBySlug, getUserProfileByUsername, isTopicCommunityMember, listProfileProviderCommunityPosts, listProfilePulse, listProfileTopicActivity, listStoryReposts, openStoryDiscussion, updateUserProfile, userHasSavedStoryUrl } from "./db";
+import { addStoryReply, addStoryRepost, createProfilePost, createTopicCommunityThread, ensureUserProfile, getStoryDiscussion, getTopicCommunityBySlug, getUserProfileByUsername, isTopicCommunityMember, listProfilePosts, listProfileProviderCommunityPosts, listProfilePulse, listProfileTopicActivity, listStoryReposts, openStoryDiscussion, updateUserProfile, userHasSavedStoryUrl } from "./db";
 
 const displayName = z.string().trim().min(1).max(80);
 const username = z.string().trim().min(3).max(30).regex(/^[a-z][a-z0-9_]*$/i, "Use 3–30 letters, numbers, or underscores, starting with a letter");
 const publicUsername = z.string().trim().min(4).max(31).regex(/^@?[a-z][a-z0-9_]*$/i, "Use a valid username");
 const bio = z.string().trim().max(280).optional();
 const repostContent = z.string().trim().min(1).max(600);
+const profilePostTitle = z.string().trim().max(160).optional();
+const profilePostBody = z.string().trim().min(1).max(2_000);
 const storyInput = z.object({ storyUrl: z.string().url().max(2048) });
 const topicSlug = z.string().trim().toLowerCase().min(2).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
@@ -33,16 +35,22 @@ export const storyPulseRouter = router({
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not update profile" });
       return profile;
     }),
+    createPost: protectedProcedure.input(z.object({ title: profilePostTitle, body: profilePostBody })).mutation(async ({ ctx, input }) => {
+      if (!(await ensureUserProfile(ctx.user.id, ctx.user.name))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load profile" });
+      const post = await createProfilePost(ctx.user.id, input);
+      if (!post) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not publish Profile post" });
+      return post;
+    }),
     activity: protectedProcedure.query(async ({ ctx }) => {
       const profile = await ensureUserProfile(ctx.user.id, ctx.user.name);
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load profile" });
-      return { profile, reposts: await listProfilePulse(ctx.user.id), communityPosts: await listProfileProviderCommunityPosts(ctx.user.id), topicActivity: await listProfileTopicActivity(ctx.user.id) };
+      return { profile, profilePosts: await listProfilePosts(ctx.user.id), reposts: await listProfilePulse(ctx.user.id), communityPosts: await listProfileProviderCommunityPosts(ctx.user.id), topicActivity: await listProfileTopicActivity(ctx.user.id) };
     }),
     public: protectedProcedure.input(z.object({ username: publicUsername })).query(async ({ input }) => {
       const normalizedUsername = normalizeUsername(input.username.replace(/^@/, ""));
       const profile = await getUserProfileByUsername(normalizedUsername);
       if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "User page not found" });
-      return { profile, reposts: await listProfilePulse(profile.userId), communityPosts: await listProfileProviderCommunityPosts(profile.userId), topicActivity: await listProfileTopicActivity(profile.userId) };
+      return { profile, profilePosts: await listProfilePosts(profile.userId), reposts: await listProfilePulse(profile.userId), communityPosts: await listProfileProviderCommunityPosts(profile.userId), topicActivity: await listProfileTopicActivity(profile.userId) };
     }),
   }),
   open: protectedProcedure.input(storyInput).mutation(async ({ input }) => {

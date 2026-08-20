@@ -8,6 +8,7 @@ import {
   RssArticle,
   ProviderCommunity,
   ProviderCommunityPost,
+  ProfilePost,
   TopicCommunity,
   TopicCommunityPost,
   TopicCommunityReply,
@@ -23,6 +24,7 @@ import {
   rssGroups,
   providerCommunities,
   providerCommunityPosts,
+  profilePosts,
   topicCommunities,
   topicCommunityMembers,
   topicCommunityPosts,
@@ -430,6 +432,19 @@ export async function listProfileProviderCommunityPosts(userId: number) {
     .innerJoin(providerCommunities, eq(providerCommunityPosts.communityId, providerCommunities.id))
     .where(eq(providerCommunityPosts.userId, userId))
     .orderBy(desc(providerCommunityPosts.createdAt));
+}
+
+export async function createProfilePost(userId: number, input: { title?: string | null; body: string }): Promise<ProfilePost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(profilePosts).values({ userId, title: input.title || null, body: input.body });
+  return (await db.select().from(profilePosts).where(and(eq(profilePosts.id, Number(result[0].insertId)), eq(profilePosts.userId, userId))).limit(1))[0];
+}
+
+export async function listProfilePosts(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(profilePosts).where(eq(profilePosts.userId, userId)).orderBy(desc(profilePosts.createdAt));
 }
 
 export async function listProfileTopicActivity(userId: number) {

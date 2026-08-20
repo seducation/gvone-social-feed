@@ -7,6 +7,7 @@ vi.mock("./db", async () => {
     ...actual,
     addStoryReply: vi.fn(),
     addStoryRepost: vi.fn(),
+    createProfilePost: vi.fn(),
     createTopicCommunityThread: vi.fn(),
     ensureUserProfile: vi.fn(),
     getStoryDiscussion: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("./db", async () => {
     getUserProfileByUsername: vi.fn(),
     isTopicCommunityMember: vi.fn(),
     listProfileProviderCommunityPosts: vi.fn(),
+    listProfilePosts: vi.fn(),
     listProfilePulse: vi.fn(),
     listProfileTopicActivity: vi.fn(),
     listStoryReposts: vi.fn(),
@@ -23,7 +25,7 @@ vi.mock("./db", async () => {
   };
 });
 
-import { addStoryReply, addStoryRepost, createTopicCommunityThread, ensureUserProfile, getStoryDiscussion, getTopicCommunityBySlug, getUserProfileByUsername, isTopicCommunityMember, listProfileProviderCommunityPosts, listProfilePulse, listProfileTopicActivity, listStoryReposts, openStoryDiscussion, updateUserProfile, userHasSavedStoryUrl } from "./db";
+import { addStoryReply, addStoryRepost, createProfilePost, createTopicCommunityThread, ensureUserProfile, getStoryDiscussion, getTopicCommunityBySlug, getUserProfileByUsername, isTopicCommunityMember, listProfilePosts, listProfileProviderCommunityPosts, listProfilePulse, listProfileTopicActivity, listStoryReposts, openStoryDiscussion, updateUserProfile, userHasSavedStoryUrl } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -97,23 +99,33 @@ describe("Story Pulse", () => {
     expect(updateUserProfile).not.toHaveBeenCalled();
   });
 
+  it("creates an owner-scoped Profile activity post", async () => {
+    vi.mocked(ensureUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", username: "reader", bio: null } as never);
+    vi.mocked(createProfilePost).mockResolvedValue({ id: 61, userId: 42, title: "Launch note", body: "A new profile update", createdAt: new Date() } as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.createPost({ title: "Launch note", body: "A new profile update" })).resolves.toMatchObject({ id: 61, userId: 42, title: "Launch note" });
+    expect(createProfilePost).toHaveBeenCalledWith(42, { title: "Launch note", body: "A new profile update" });
+  });
+
   it("returns a member profile together with that member's repost activity", async () => {
     vi.mocked(ensureUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", bio: "Signals and launches" } as never);
+    vi.mocked(listProfilePosts).mockResolvedValue([{ id: 61, userId: 42, title: "Launch note", body: "A new profile update", createdAt: new Date() }] as never);
     vi.mocked(listProfilePulse).mockResolvedValue([{ id: 30, discussionId: 12, content: "Worth watching", sourceLabel: "NASA", storyTitle: "Launch update", storyLink: "https://example.com/launch", createdAt: new Date() }] as never);
     vi.mocked(listProfileProviderCommunityPosts).mockResolvedValue([{ id: 44, communityId: 3, providerHostname: "youtube.com", title: "Launch discussion", body: null, createdAt: new Date() }] as never);
     vi.mocked(listProfileTopicActivity).mockResolvedValue([{ id: 51, kind: "thread", communityId: 8, communitySlug: "space", communityName: "Space", title: "Mission context", body: "A topic Thread", sourceStoryUrl: "https://example.com/launch", createdAt: new Date() }] as never);
     vi.mocked(listStoryReposts).mockResolvedValue([]);
 
-    await expect(appRouter.createCaller(createContext()).storyPulse.profile.activity()).resolves.toMatchObject({ profile: { displayName: "Reader" }, reposts: [{ storyTitle: "Launch update" }], communityPosts: [{ providerHostname: "youtube.com" }], topicActivity: [{ communitySlug: "space" }] });
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.activity()).resolves.toMatchObject({ profile: { displayName: "Reader" }, profilePosts: [{ title: "Launch note" }], reposts: [{ storyTitle: "Launch update" }], communityPosts: [{ providerHostname: "youtube.com" }], topicActivity: [{ communitySlug: "space" }] });
   });
 
   it("returns a read-only public user page by @username with that member's activity", async () => {
     vi.mocked(getUserProfileByUsername).mockResolvedValue({ userId: 7, displayName: "Orbit", username: "orbit", bio: "Launch notes" } as never);
+    vi.mocked(listProfilePosts).mockResolvedValue([{ id: 62, userId: 7, title: null, body: "A public profile note", createdAt: new Date() }] as never);
     vi.mocked(listProfilePulse).mockResolvedValue([{ id: 30, discussionId: 12, content: "What does this launch prove?", parentPostId: null, createdAt: new Date() }] as never);
     vi.mocked(listProfileProviderCommunityPosts).mockResolvedValue([{ id: 44, communityId: 3, providerHostname: "youtube.com", title: "Launch discussion", body: null, createdAt: new Date() }] as never);
     vi.mocked(listProfileTopicActivity).mockResolvedValue([{ id: 52, kind: "post", communityId: 8, communitySlug: "space", communityName: "Space", title: "Mission note", body: "A topic post", createdAt: new Date() }] as never);
 
-    await expect(appRouter.createCaller(createContext()).storyPulse.profile.public({ username: "@Orbit" })).resolves.toMatchObject({ profile: { username: "orbit" }, communityPosts: [{ providerHostname: "youtube.com" }], topicActivity: [{ communitySlug: "space" }] });
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.public({ username: "@Orbit" })).resolves.toMatchObject({ profile: { username: "orbit" }, profilePosts: [{ body: "A public profile note" }], communityPosts: [{ providerHostname: "youtube.com" }], topicActivity: [{ communitySlug: "space" }] });
     expect(getUserProfileByUsername).toHaveBeenCalledWith("orbit");
     expect(listProfilePulse).toHaveBeenCalledWith(7);
   });

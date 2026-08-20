@@ -92,6 +92,16 @@ export const userProfiles = mysqlTable("user_profiles", {
   username: uniqueIndex("user_profiles_username").on(table.username),
 }));
 
+export const profilePosts = mysqlTable("profile_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 160 }),
+  body: text("body").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userCreated: index("profile_posts_user_created").on(table.userId, table.createdAt),
+}));
+
 export const storyDiscussions = mysqlTable("story_discussions", {
   id: int("id").autoincrement().primaryKey(),
   storyUrl: varchar("storyUrl", { length: 2048 }).notNull(),
@@ -218,6 +228,7 @@ export type RssArticle = typeof rssArticles.$inferSelect;
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type UserProfile = typeof userProfiles.$inferSelect;
+export type ProfilePost = typeof profilePosts.$inferSelect;
 export type StoryDiscussion = typeof storyDiscussions.$inferSelect;
 export type StoryDiscussionPost = typeof storyDiscussionPosts.$inferSelect;
 export type ProviderCommunity = typeof providerCommunities.$inferSelect;

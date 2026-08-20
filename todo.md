@@ -334,3 +334,9 @@
 - [x] Add responsive two-column Profile grid regression coverage and visual verification
 - [x] Surface available owned RSS images and video thumbnails in Profile Overview activity cards
 - [x] Add regression coverage for Profile activity visual media enrichment and rendering
+- [x] Add private owner-scoped Profile post storage and protected publishing procedure
+- [x] Add a top-left Profile plus-button composer for Profile posts
+- [x] Include Profile posts in the two-column owner activity grid with regression coverage
+- [x] Replaced by user clarification: open the Profile post composer from the Profile header plus button
+- [x] Place the Profile post plus button at the top-left of the Profile header
+- [x] Add a dedicated Profile posts tab to the activity board while retaining Profile posts in Overview

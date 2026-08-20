@@ -1,22 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Hash, Loader2, MessageCircleQuestion, MessageSquarePlus, Pencil, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, FilePenLine, Hash, Loader2, MessageCircleQuestion, MessageSquarePlus, Pencil, Plus, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { publicStoryProviderLabel } from "@/lib/storyProvider";
 
-type ActivityTab = "all" | "stories" | "provider" | "topics";
+type ActivityTab = "all" | "stories" | "profile" | "provider" | "topics";
 type OverviewItem = {
   key: string;
-  kind: "Story Pulse" | "Provider post" | "Topic post" | "RSS Thread";
+  kind: "Story Pulse" | "Profile post" | "Provider post" | "Topic post" | "RSS Thread";
   context: string;
   title: string;
   body: string;
   href: string;
   createdAt: Date | string;
-  tone: "lilac" | "blue" | "rose" | "amber";
+  tone: "lilac" | "mint" | "blue" | "rose" | "amber";
   visual?: { thumbnailUrl?: string | null; videoUrl?: string | null; videoMimeType?: string | null };
 };
 
@@ -26,6 +26,7 @@ const preview = (value: string | null | undefined, fallback: string) => (
 
 const cardTone: Record<OverviewItem["tone"], string> = {
   lilac: "border-[#e4e0fb] hover:border-[#afa3ff]",
+  mint: "border-[#d6ece4] hover:border-[#7ac9ac]",
   blue: "border-[#dce9f8] hover:border-[#92c4ff]",
   rose: "border-[#f1e0e8] hover:border-[#ebb3cb]",
   amber: "border-[#eee3cf] hover:border-[#e5bd7a]",
@@ -56,11 +57,24 @@ export default function Profile() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [tab, setTab] = useState<ActivityTab>("all");
+  const [postComposerOpen, setPostComposerOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [postBody, setPostBody] = useState("");
   const updateProfile = trpc.storyPulse.profile.update.useMutation({
     onSuccess: async () => {
       setEditing(false);
       await utils.storyPulse.profile.activity.invalidate();
       toast.success("Profile updated");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const createProfilePost = trpc.storyPulse.profile.createPost.useMutation({
+    onSuccess: async () => {
+      setPostComposerOpen(false);
+      setPostTitle("");
+      setPostBody("");
+      await utils.storyPulse.profile.activity.invalidate();
+      toast.success("Profile post published");
     },
     onError: error => toast.error(error.message),
   });
@@ -77,6 +91,7 @@ export default function Profile() {
   const pulse = activity.data?.reposts ?? [];
   const questions = pulse.filter((item: any) => item.parentPostId == null);
   const replies = pulse.filter((item: any) => item.parentPostId != null);
+  const profilePosts = activity.data?.profilePosts ?? [];
   const providerPosts = activity.data?.communityPosts ?? [];
   const topicActivity = activity.data?.topicActivity ?? [];
   const topicGroups = useMemo(() => Array.from(
@@ -92,6 +107,16 @@ export default function Profile() {
     items: items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   })).sort((a, b) => new Date(b.items[0].createdAt).getTime() - new Date(a.items[0].createdAt).getTime()), [topicActivity]);
   const overviewItems = useMemo<OverviewItem[]>(() => [
+    ...profilePosts.map((post: any) => ({
+      key: `profile-${post.id}`,
+      kind: "Profile post" as const,
+      context: "Profile activity",
+      title: post.title || "Profile update",
+      body: preview(post.body, "Open profile post"),
+      href: `/profile#profile-post-${post.id}`,
+      createdAt: post.createdAt,
+      tone: "mint" as const,
+    })),
     ...pulse.map((item: any) => ({
       key: `pulse-${item.id}`,
       kind: "Story Pulse" as const,
@@ -124,7 +149,7 @@ export default function Profile() {
       tone: (item.kind === "thread" ? "amber" : "rose") as OverviewItem["tone"],
       visual: item.story ? { thumbnailUrl: item.story.thumbnailUrl, videoUrl: item.story.videoUrl, videoMimeType: item.story.videoMimeType } : undefined,
     })),
-  ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()), [pulse, providerPosts, topicActivity]);
+  ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()), [profilePosts, pulse, providerPosts, topicActivity]);
   const overviewColumns = useMemo(() => [
     overviewItems.filter((_, index) => index % 2 === 0),
     overviewItems.filter((_, index) => index % 2 === 1),
@@ -132,6 +157,7 @@ export default function Profile() {
   const tabs: { id: ActivityTab; label: string; count: number }[] = [
     { id: "all", label: "Overview", count: overviewItems.length },
     { id: "stories", label: "Story Pulse", count: questions.length + replies.length },
+    { id: "profile", label: "Profile posts", count: profilePosts.length },
     { id: "provider", label: "Provider posts", count: providerPosts.length },
     { id: "topics", label: "Topics", count: topicActivity.length },
   ];
@@ -146,6 +172,7 @@ export default function Profile() {
 
   return <div className="min-h-screen bg-[#f7f8fa] text-[#14161a]">
     <header className="flex h-[76px] items-center border-b border-[#e6e8ed] bg-[#f7f8fa]/90 px-5 backdrop-blur-xl sm:px-8">
+      <button type="button" onClick={() => setPostComposerOpen(true)} aria-label="Create Profile post" className="grid h-9 w-9 place-items-center rounded-xl bg-[#635bff] text-white shadow-[0_5px_12px_rgba(99,91,255,.25)] transition-transform active:scale-95"><Plus className="h-4 w-4" /></button>
       <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#68707d] hover:text-[#635bff]"><ArrowLeft className="h-4 w-4" /> Reader</Link>
       <div className="ml-5 flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#17171d] text-white"><Sparkles className="h-4 w-4" /></span><span className="text-lg font-semibold">Your <span className="text-[#635bff]">profile</span></span></div>
     </header>
@@ -163,9 +190,12 @@ export default function Profile() {
         <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Activity board</h2><p className="mt-1 text-sm text-[#7d8794]">Every contribution you have shared, arranged in a compact visual collection.</p></div><span className="text-xs font-semibold text-[#8b7ade]">{tabs.find(item => item.id === tab)?.count ?? 0} items</span></div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1">{tabs.map(item => <button key={item.id} onClick={() => setTab(item.id)} aria-pressed={tab === item.id} className={`whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold ${tab === item.id ? "bg-[#635bff] text-white" : "bg-[#f3f2ff] text-[#68707d] hover:bg-[#e9e7ff]"}`}>{item.label} <span className="ml-1 opacity-70">{item.count}</span></button>)}</div>
 
-        {tab === "all" && <div className="mt-5">{overviewItems.length > 0 ? <div aria-label="All user activity" data-testid="profile-overview-grid" className="mx-auto grid max-w-2xl grid-cols-2 items-start gap-3 sm:gap-5">{overviewColumns.map((column, columnIndex) => <div key={columnIndex} data-testid={`profile-overview-column-${columnIndex}`} className={`space-y-3 sm:space-y-5 ${columnIndex === 1 ? "pt-8 sm:pt-12" : ""}`}>{column.map(item => <Link key={item.key} href={item.href} aria-label={`${item.kind}: ${item.title}`} className={`block overflow-hidden rounded-[1.55rem] border bg-white p-3.5 shadow-[0_7px_18px_rgba(30,35,50,.045)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(30,35,50,.08)] ${cardTone[item.tone]}`}><ActivityVisual item={item} /><div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7869d4]">{item.kind}</span><span className="max-w-[52%] truncate text-[10px] font-semibold text-[#8c95a2]">{item.context}</span></div><h3 className="mt-2 text-sm font-bold leading-[1.13] tracking-[-.02em] text-[#21242b] sm:text-base">{item.title}</h3><p className="mt-2 text-xs leading-5 text-[#7b8491]">{item.body}</p><p className="mt-3 text-[10px] font-medium text-[#a0a7b1]">{new Date(item.createdAt).toLocaleDateString()}</p></Link>)}</div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#dfe2e8] bg-[#fafbfc] p-8 text-center text-sm text-[#7d8794]">Your posts, Threads, and Replies will appear here as you share them.</div>}</div>}
+        {postComposerOpen && <form onSubmit={(event) => { event.preventDefault(); createProfilePost.mutate({ title: postTitle.trim() || undefined, body: postBody }); }} className="mt-5 rounded-[1.35rem] border border-[#ddd8ff] bg-[#f9f8ff] p-4 shadow-[0_8px_18px_rgba(72,61,164,.06)]"><div className="flex items-center justify-between gap-3"><div className="inline-flex items-center gap-2 text-sm font-bold text-[#41368f]"><FilePenLine className="h-4 w-4" /> New Profile post</div><button type="button" onClick={() => setPostComposerOpen(false)} aria-label="Close Profile post composer" className="grid h-7 w-7 place-items-center rounded-full text-[#706e81] hover:bg-white"><X className="h-4 w-4" /></button></div><input value={postTitle} onChange={event => setPostTitle(event.target.value)} maxLength={160} placeholder="Title (optional)" className="mt-4 w-full rounded-xl border border-[#e4e1f5] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#8d83e8]" /><textarea value={postBody} onChange={event => setPostBody(event.target.value)} maxLength={2000} required rows={4} placeholder="Share a profile update…" className="mt-3 w-full resize-none rounded-xl border border-[#e4e1f5] bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-[#8d83e8]" /><div className="mt-3 flex items-center justify-between gap-3"><span className="text-[11px] font-medium text-[#8a8a9d]">Visible in Overview and Profile posts.</span><button type="submit" disabled={!postBody.trim() || createProfilePost.isPending} className="rounded-full bg-[#635bff] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{createProfilePost.isPending ? "Publishing…" : "Post"}</button></div></form>}
+
+        {tab === "all" && <div className="mt-5">{overviewItems.length > 0 ? <div aria-label="All user activity" data-testid="profile-overview-grid" className="mx-auto grid max-w-2xl grid-cols-2 items-start gap-3 sm:gap-5">{overviewColumns.map((column, columnIndex) => <div key={columnIndex} data-testid={`profile-overview-column-${columnIndex}`} className={`space-y-3 sm:space-y-5 ${columnIndex === 1 ? "pt-8 sm:pt-12" : ""}`}>{column.map(item => <Link key={item.key} href={item.href} id={item.key.startsWith("profile-") ? `profile-post-${item.key.replace("profile-", "")}` : undefined} aria-label={`${item.kind}: ${item.title}`} className={`block overflow-hidden rounded-[1.55rem] border bg-white p-3.5 shadow-[0_7px_18px_rgba(30,35,50,.045)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(30,35,50,.08)] ${cardTone[item.tone]}`}><ActivityVisual item={item} /><div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7869d4]">{item.kind}</span><span className="max-w-[52%] truncate text-[10px] font-semibold text-[#8c95a2]">{item.context}</span></div><h3 className="mt-2 text-sm font-bold leading-[1.13] tracking-[-.02em] text-[#21242b] sm:text-base">{item.title}</h3><p className="mt-2 text-xs leading-5 text-[#7b8491]">{item.body}</p><p className="mt-3 text-[10px] font-medium text-[#a0a7b1]">{new Date(item.createdAt).toLocaleDateString()}</p></Link>)}</div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#dfe2e8] bg-[#fafbfc] p-8 text-center text-sm text-[#7d8794]">Your posts, Threads, and Replies will appear here as you share them.</div>}</div>}
 
         {tab === "stories" && <div className="mt-5 grid gap-3 md:grid-cols-2">{[...questions.map((item: any) => ({ ...item, role: "Thread" })), ...replies.map((item: any) => ({ ...item, role: "Reply" }))].slice(0, 8).map((item: any) => <Link key={`${item.role}-${item.id}`} href={`/pulse/${item.discussionId}#thread-${item.parentPostId ?? item.id}`} className="rounded-2xl border border-[#e5e7ed] p-4 hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageCircleQuestion className="h-3.5 w-3.5" /> {item.role} · {publicStoryProviderLabel(item.storyUrl)}</div><p className="mt-3 line-clamp-3 text-sm leading-6 text-[#596270]">{preview(item.content, "Open the RSS story discussion")}</p></Link>)}</div>}
+        {tab === "profile" && <div className="mt-5 grid gap-3 md:grid-cols-2">{profilePosts.length ? profilePosts.map((post: any) => <article key={post.id} id={`profile-post-${post.id}`} className="rounded-2xl border border-[#d6ece4] bg-[#fbfffd] p-4"><div className="flex items-center gap-2 text-xs font-semibold text-[#3d9475]"><FilePenLine className="h-3.5 w-3.5" /> Profile post</div><h3 className="mt-3 font-semibold">{post.title || "Profile update"}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#68707d]">{post.body}</p><p className="mt-3 text-[11px] font-medium text-[#98a3a7]">{new Date(post.createdAt).toLocaleDateString()}</p></article>) : <div className="rounded-2xl border border-dashed border-[#d6ece4] bg-[#fbfffd] p-8 text-center text-sm text-[#7d8794]">Use the plus button in the header to publish your first Profile post.</div>}</div>}
         {tab === "provider" && <div className="mt-5 grid gap-3 md:grid-cols-2">{providerPosts.slice(0, 8).map((post: any) => <Link key={post.id} href={`/community/${encodeURIComponent(post.providerHostname)}`} className="rounded-2xl border border-[#e5e7ed] p-4 hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageSquarePlus className="h-3.5 w-3.5" /> {post.providerHostname}</div><h3 className="mt-2 font-semibold">{post.title}</h3><p className="mt-2 line-clamp-2 text-sm text-[#68707d]">{preview(post.body, "Open provider post")}</p></Link>)}</div>}
         {tab === "topics" && <div className="mt-5 grid gap-3 md:grid-cols-2">{topicGroups.map(group => <section key={group.slug} className="rounded-2xl border border-[#e5e7ed] p-4"><Link href={`/topics/${group.slug}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#635bff]"><Hash className="h-4 w-4" /> {group.name}</Link><p className="mt-1 text-xs text-[#8a929f]">{group.items.length} contribution{group.items.length === 1 ? "" : "s"}</p><div className="mt-3 space-y-2">{group.items.slice(0, 2).map((item: any) => <Link key={`${item.kind}-${item.id}`} href={`/topics/${group.slug}/discussion/${item.kind}/${item.id}`} className="block rounded-xl bg-[#fafbfc] px-3 py-2.5 hover:bg-[#f3f2ff]"><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-[#8b7ade]">{item.kind === "thread" ? "RSS Thread" : "Topic post"}</div><div className="mt-1 line-clamp-1 text-sm font-semibold">{item.title || preview(item.body, "Topic post")}</div></Link>)}</div></section>)}</div>}
       </section>
