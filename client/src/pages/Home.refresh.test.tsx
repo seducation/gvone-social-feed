@@ -537,7 +537,7 @@ describe("dashboard reload refresh controls", () => {
 
     const postButton = screen.getByRole("button", { name: "Create community post" });
     expect(postButton.closest("header")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Visit community" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Visit community" }).getAttribute("href")).toBe("/communities");
     fireEvent.click(postButton);
 
     const composer = screen.getByRole("dialog", { name: "Create community post" });

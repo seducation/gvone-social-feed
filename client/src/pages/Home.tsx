@@ -95,7 +95,6 @@ export default function Home() {
   const managedFeeds = trpc.feed.list.useQuery(undefined, { enabled: auth.isAuthenticated && showSourceManager });
   const managedFeedArticles = trpc.feed.sourceArticles.useQuery({ id: managedFeedId ?? 0 }, { enabled: showSourceManager && Boolean(managedFeedId) });
   const sourceTabOrderQuery = trpc.sourceTabs.order.useQuery(undefined, { enabled: auth.isAuthenticated });
-  const providerCommunities = trpc.providerCommunity.list.useQuery(undefined, { enabled: auth.isAuthenticated });
   const postableProviderCommunities = trpc.providerCommunity.mine.useQuery(undefined, { enabled: auth.isAuthenticated });
 
   const addFeed = trpc.feed.add.useMutation({
@@ -364,7 +363,7 @@ export default function Home() {
           <button type="button" onClick={() => setShowAdd(true)} aria-label="Add a source" className={`flex shrink-0 items-center text-[#697281] transition hover:bg-white ${isSourceBarCompact ? "min-w-[88px] gap-2 rounded-xl px-2.5 py-1.5" : "min-w-[80px] flex-col gap-1.5 rounded-2xl px-3 py-2"}`}><span className={`grid place-items-center bg-white text-[#635bff] shadow-sm ${isSourceBarCompact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"}`}><Plus className="h-4 w-4" /></span><span className={`${isSourceBarCompact ? "text-xs" : "text-[11px]"} font-semibold`}>Add source</span>{!isSourceBarCompact && <span className="text-[10px] text-[#a0a8b5]">New channel</span>}</button>
         </div>
         <div className="flex shrink-0 items-center gap-2 border-l border-[#e0e3e9] pl-2">
-          <select aria-label="Visit community" defaultValue="" onChange={(event) => { if (event.target.value) window.location.href = `/community/${encodeURIComponent(event.target.value)}`; }} className={`rounded-xl border border-[#dcd9ff] bg-[#f4f3ff] px-3 font-semibold text-[#635bff] outline-none transition hover:border-[#635bff] ${isSourceBarCompact ? "h-9 w-9 px-1 text-[0px]" : "h-9 text-xs"}`}><option value="">Visit community</option>{providerCommunities.data?.map((community) => <option key={community.id} value={community.providerHostname}>{community.providerHostname}</option>)}</select>
+          <Link href="/communities" aria-label="Visit community" className={`inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#dcd9ff] bg-[#f4f3ff] px-3 font-semibold text-[#635bff] transition hover:border-[#635bff] ${isSourceBarCompact ? "h-9 w-9 justify-center" : "h-9 text-xs"}`}><Globe2 className="h-4 w-4" /><span className="hidden md:inline">Visit community</span></Link>
           <button type="button" onClick={() => { setManagedFeedId(null); setShowSourceManager(true); }} aria-label="Manage RSS sources" className={`inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#e1e4ea] bg-white font-semibold text-[#4e5765] transition hover:border-[#635bff] hover:text-[#635bff] ${isSourceBarCompact ? "h-9 w-9 justify-center" : "px-3 py-2 text-xs"}`}><SlidersHorizontal className="h-4 w-4" /><span className="hidden md:inline">Manage</span></button>
         </div>
       </div>

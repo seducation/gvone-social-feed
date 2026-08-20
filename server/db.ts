@@ -386,6 +386,25 @@ export async function listProviderCommunityPostsForUser(userId: number, provider
   return { community, posts: rows };
 }
 
+export async function listAllProviderCommunityPosts() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: providerCommunityPosts.id,
+    communityId: providerCommunityPosts.communityId,
+    providerHostname: providerCommunities.providerHostname,
+    userId: providerCommunityPosts.userId,
+    title: providerCommunityPosts.title,
+    body: providerCommunityPosts.body,
+    createdAt: providerCommunityPosts.createdAt,
+    displayName: userProfiles.displayName,
+    username: userProfiles.username,
+  }).from(providerCommunityPosts)
+    .innerJoin(providerCommunities, eq(providerCommunityPosts.communityId, providerCommunities.id))
+    .leftJoin(userProfiles, eq(providerCommunityPosts.userId, userProfiles.userId))
+    .orderBy(desc(providerCommunityPosts.createdAt));
+}
+
 export async function listProfileProviderCommunityPosts(userId: number) {
   const db = await getDb();
   if (!db) return [];

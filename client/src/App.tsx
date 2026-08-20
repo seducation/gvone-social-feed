@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import StoryPulse from "./pages/StoryPulse";
 import ProviderCommunity from "./pages/ProviderCommunity";
+import CommunityDirectory from "./pages/CommunityDirectory";
 import { StoryPulseFeedActions } from "./components/StoryPulseFeedActions";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path={"/profile"} component={Profile} />
       <Route path={"/pulse/:id"} component={StoryPulse} />
       <Route path={"/community/:providerHostname"} component={ProviderCommunity} />
+      <Route path={"/communities"} component={CommunityDirectory} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

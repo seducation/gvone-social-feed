@@ -252,3 +252,10 @@
 - [x] Add universal-access, post-redirect, and revised-control regression coverage
 - [x] Show each member’s provider-community posts in a dedicated profile section with community links
 - [x] Add profile community-post activity regression coverage
+- [x] Replace the source-bar community selector with a Visit community button
+- [x] Add an all-community directory that shows posts from every provider community
+- [x] Remove the oversized gvone community hero card from provider pages
+- [x] Add directory, all-posts feed, button navigation, and simplified-page regression coverage
+- [x] Show all user posts from every provider together in one newest-first mixed community timeline
+- [x] Make each mixed-timeline provider label open that provider’s dedicated community page
+- [x] Present every mixed community post as a social-feed card with author identity and provider context

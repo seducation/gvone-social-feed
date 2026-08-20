@@ -7,13 +7,14 @@ vi.mock("./db", async () => {
     ...actual,
     createProviderCommunityPost: vi.fn(),
     ensureUserProfile: vi.fn(),
+    listAllProviderCommunityPosts: vi.fn(),
     listProviderCommunitiesForUser: vi.fn(),
     listPostableProviderCommunitiesForUser: vi.fn(),
     listProviderCommunityPostsForUser: vi.fn(),
   };
 });
 
-import { createProviderCommunityPost, ensureUserProfile, listPostableProviderCommunitiesForUser, listProviderCommunitiesForUser, listProviderCommunityPostsForUser } from "./db";
+import { createProviderCommunityPost, ensureUserProfile, listAllProviderCommunityPosts, listPostableProviderCommunitiesForUser, listProviderCommunitiesForUser, listProviderCommunityPostsForUser } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -39,6 +40,12 @@ describe("Provider communities", () => {
 
     await expect(appRouter.createCaller(createContext()).providerCommunity.mine()).resolves.toMatchObject([{ providerHostname: "youtube.com" }]);
     expect(listPostableProviderCommunitiesForUser).toHaveBeenCalledWith(42);
+  });
+
+  it("returns a mixed newest-first post feed from every provider community", async () => {
+    vi.mocked(listAllProviderCommunityPosts).mockResolvedValue([{ id: 12, communityId: 1, providerHostname: "youtube.com", userId: 7, title: "Launch discussion", body: null, createdAt: new Date(), displayName: "Orbit", username: "orbit" }, { id: 11, communityId: 2, providerHostname: "cnn.com", userId: 8, title: "World update", body: null, createdAt: new Date(), displayName: "North", username: "north" }] as never);
+
+    await expect(appRouter.createCaller(createContext()).providerCommunity.allPosts()).resolves.toMatchObject([{ providerHostname: "youtube.com", username: "orbit" }, { providerHostname: "cnn.com", username: "north" }]);
   });
 
   it("publishes a titled post into a provider community the member has joined through RSS", async () => {
