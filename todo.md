@@ -228,3 +228,6 @@
 - [x] Validate and enforce username uniqueness in protected profile updates
 - [x] Add username editing and @username attribution to Story Pulse and profile views
 - [x] Add username uniqueness, default, validation, and attribution regression coverage
+- [x] Replace generic Story Pulse question language with branded Thread language
+- [x] Replace generic Story Pulse answer language with branded Echo language
+- [x] Update profile labels, empty states, attribution copy, and terminology regressions

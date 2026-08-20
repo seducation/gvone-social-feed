@@ -51,34 +51,34 @@ describe("Story Pulse and member profile", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("keeps the original RSS story fixed above question Threads and their quote answers", () => {
+  it("keeps the original RSS story fixed above branded Threads and Echoes", () => {
     window.history.pushState({}, "", "/pulse/12");
     render(<StoryPulse />);
 
     expect(screen.getByText("RSS story · live context")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Launch update" })).toBeTruthy();
-    expect(screen.getByText("Questions")).toBeTruthy();
-    expect(screen.getByText("Question Thread")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Ask a question"), { target: { value: "My question" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask question" }));
-    expect(mocks.repostMutate).toHaveBeenCalledWith({ discussionId: 12, content: "My question" });
-    fireEvent.click(screen.getByRole("button", { name: "Answer" }));
-    fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "My answer" } });
-    fireEvent.click(screen.getByRole("button", { name: "Post answer" }));
-    expect(mocks.replyMutate).toHaveBeenCalledWith({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "My answer" });
+    expect(screen.getByText("Story Threads")).toBeTruthy();
+    expect(screen.getByText("Story Thread")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Start a Thread"), { target: { value: "My Thread" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start Thread" }));
+    expect(mocks.repostMutate).toHaveBeenCalledWith({ discussionId: 12, content: "My Thread" });
+    fireEvent.click(screen.getByRole("button", { name: "Echo" }));
+    fireEvent.change(screen.getByLabelText("Your Echo"), { target: { value: "My Echo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Echo" }));
+    expect(mocks.replyMutate).toHaveBeenCalledWith({ discussionId: 12, parentPostId: 30, quotedPostId: 30, content: "My Echo" });
     expect(screen.getByText("@orbit")).toBeTruthy();
-    expect(screen.getByText("In answer to @orbit’s question")).toBeTruthy();
+    expect(screen.getAllByText("Echoing @orbit’s Thread").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("separates question Threads from quote answers in the member profile", () => {
+  it("separates Threads from Echoes in the member profile", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
     expect(screen.getByText("@reader")).toBeTruthy();
-    expect(screen.getByText("Your questions")).toBeTruthy();
-    expect(screen.getByText("Your answers")).toBeTruthy();
-    expect(screen.getByText("1 question asked")).toBeTruthy();
-    expect(screen.getByText("1 answer shared")).toBeTruthy();
+    expect(screen.getByText("Your Threads")).toBeTruthy();
+    expect(screen.getByText("Your Echoes")).toBeTruthy();
+    expect(screen.getByText("1 Thread started")).toBeTruthy();
+    expect(screen.getByText("1 Echo sent")).toBeTruthy();
     expect(screen.getAllByText("Launch update").length).toBe(2);
     expect(screen.getAllByText("What does this launch prove?").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("It verifies the new engine performance.")).toBeTruthy();
