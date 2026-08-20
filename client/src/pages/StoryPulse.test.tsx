@@ -75,19 +75,17 @@ describe("Story Pulse and member profile", () => {
     expect(screen.getAllByText("Replying to @orbit’s Thread").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("separates Threads, Replies, and provider-community posts in the member profile", () => {
+  it("organizes Threads, Replies, and provider posts through the compact member activity board", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
     expect(screen.getByText("@reader")).toBeTruthy();
-    expect(screen.getByText("Your Threads")).toBeTruthy();
-    expect(screen.getByText("Your Replies")).toBeTruthy();
-    expect(screen.getByText("Your community posts")).toBeTruthy();
-    expect(screen.getByText("1 Thread started")).toBeTruthy();
-    expect(screen.getByText("1 Reply sent")).toBeTruthy();
-    expect(screen.getAllByText("Launch update").length).toBe(2);
-    expect(screen.getAllByText("What does this launch prove?").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("It verifies the new engine performance.")).toBeTruthy();
+    expect(screen.getByText("Activity board")).toBeTruthy();
+    expect(screen.getByText("1 Threads")).toBeTruthy();
+    expect(screen.getByText("1 Replies")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Story Pulse 2/ }));
+    expect(screen.getByText("What does this launch prove?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Provider posts 1/ }));
     expect(screen.getByText("Launch discussion")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Launch discussion/i }).getAttribute("href")).toBe("/community/youtube.com");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));

@@ -318,3 +318,7 @@
 - [x] Render full RSS story cards inside RSS-backed topic Threads instead of source labels or URLs
 - [x] Add a Shorts refresh control beside the sound preference button
 - [x] Add rich RSS story and Shorts refresh regression coverage
+- [x] Add owner profile activity for ordinary topic posts and RSS topic Threads with topic community context
+- [x] Replace long profile activity stacks with compact filterable activity categories and concise previews
+- [x] Group topic activity by community and provide direct navigation to topic discussions
+- [x] Add profile topic activity, compact filtering, grouping, and navigation regression coverage

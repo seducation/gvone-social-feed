@@ -431,6 +431,18 @@ export async function listProfileProviderCommunityPosts(userId: number) {
     .orderBy(desc(providerCommunityPosts.createdAt));
 }
 
+export async function listProfileTopicActivity(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db.select({ id: topicCommunityPosts.id, communityId: topicCommunityPosts.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, title: topicCommunityPosts.title, body: topicCommunityPosts.body, createdAt: topicCommunityPosts.createdAt }).from(topicCommunityPosts)
+    .innerJoin(topicCommunities, eq(topicCommunityPosts.communityId, topicCommunities.id))
+    .where(eq(topicCommunityPosts.userId, userId));
+  const threads = await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt }).from(topicCommunityThreads)
+    .innerJoin(topicCommunities, eq(topicCommunityThreads.communityId, topicCommunities.id))
+    .where(eq(topicCommunityThreads.userId, userId));
+  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...threads.map((thread) => ({ ...thread, kind: "thread" as const }))].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
 export type TopicCommunityInput = {
   slug: string;
   name: string;
