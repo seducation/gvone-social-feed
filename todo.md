@@ -322,3 +322,6 @@
 - [x] Replace long profile activity stacks with compact filterable activity categories and concise previews
 - [x] Group topic activity by community and provide direct navigation to topic discussions
 - [x] Add profile topic activity, compact filtering, grouping, and navigation regression coverage
+- [x] Prioritize the active embedded YouTube Short so playback starts sooner
+- [x] Defer non-visible YouTube player initialization without changing native video behavior
+- [x] Add YouTube Shorts startup-priority, autoplay, and sound-continuity regression coverage

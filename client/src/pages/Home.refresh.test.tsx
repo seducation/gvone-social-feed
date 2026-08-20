@@ -372,6 +372,25 @@ describe("dashboard reload refresh controls", () => {
     mocks.allArticles.pop();
   });
 
+  it("defers an off-screen YouTube player until its Short becomes visible", async () => {
+    const youtubeShort = { id: 4, feedId: 7, title: "NASA YouTube archive", link: "https://example.com/youtube-archive", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://www.youtube.com/embed/secondary", videoMimeType: "text/html" };
+    mocks.allArticles.push(youtubeShort as (typeof mocks.allArticles)[number]);
+    installShortsObserver();
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    await waitFor(() => expect(shortObserverCallback).toBeTypeOf("function"));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+    const cards = Array.from(dialog.querySelectorAll<HTMLElement>("[data-short-id]"));
+    expect(cards[1].dataset.shortMediaState).toBe("deferred");
+    expect(dialog.querySelector('iframe[title="Embedded feed video"]')).toBeNull();
+
+    act(() => shortObserverCallback?.([{ target: cards[1], isIntersecting: true, intersectionRatio: 0.8 } as unknown as IntersectionObserverEntry], {} as IntersectionObserver));
+    const frame = await within(cards[1]).findByTitle("Embedded feed video");
+    expect(frame.getAttribute("src")).toContain("autoplay=1");
+    mocks.allArticles.pop();
+  });
+
   it("keeps embedded YouTube Shorts in a stable tile and sends an off-screen pause command", async () => {
     const first = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
     const originalUrl = first.videoUrl;

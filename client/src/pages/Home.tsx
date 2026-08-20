@@ -263,7 +263,7 @@ export default function Home() {
       return;
     }
     setActiveShortId(videoArticles[0]?.id ?? null);
-    setLoadedShortIds(videoArticles.slice(0, 2).map((article) => article.id));
+    setLoadedShortIds(videoArticles[0] ? [videoArticles[0].id] : []);
     const viewport = shortViewportRef.current;
     if (!viewport || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver((entries) => {
@@ -279,7 +279,9 @@ export default function Home() {
     if (!activeShortId) return;
     const activeIndex = videoArticles.findIndex((article) => article.id === activeShortId);
     if (activeIndex < 0) return;
-    const nearbyIds = videoArticles.slice(Math.max(0, activeIndex - 1), activeIndex + 2).map((article) => article.id);
+    const nearbyIds = videoArticles.slice(Math.max(0, activeIndex - 1), activeIndex + 2)
+      .filter((article) => article.id === activeShortId || article.videoMimeType !== "text/html")
+      .map((article) => article.id);
     setLoadedShortIds((current) => Array.from(new Set([...current, ...nearbyIds])));
   }, [activeShortId, videoArticles]);
 
