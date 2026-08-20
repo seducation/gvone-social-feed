@@ -10,8 +10,10 @@ describe("embedded video control safe areas", () => {
     expect(stylesheet).toContain("aspect-ratio: 16 / 9;");
   });
 
-  it("keeps Shorts captions above the embedded player control rail", () => {
+  it("keeps Shorts metadata and the original link above the embedded player control rail", () => {
     expect(stylesheet).toContain("article[data-short-id] > div > div:last-child");
-    expect(stylesheet).toContain("bottom: 5.25rem;");
+    expect(stylesheet).toContain("bottom: 5.75rem;");
+    expect(stylesheet).toContain("article[data-short-id] > div > div:last-child a");
+    expect(stylesheet).toContain("bottom: 0.75rem;");
   });
 });

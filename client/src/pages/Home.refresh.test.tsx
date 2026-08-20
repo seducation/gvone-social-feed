@@ -401,7 +401,7 @@ describe("dashboard reload refresh controls", () => {
     article.videoMimeType = originalMimeType;
   });
 
-  it("renders an embedded YouTube Shorts caption above the protected player control rail", () => {
+  it("renders an embedded YouTube Shorts caption and original link above the protected player control rail", () => {
     const article = mocks.allArticles[0] as { videoUrl: string | null; videoMimeType?: string | null };
     const originalUrl = article.videoUrl;
     const originalMimeType = article.videoMimeType;
@@ -412,12 +412,16 @@ describe("dashboard reload refresh controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
     const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
     const caption = within(dialog).getByText("NASA update").closest("div");
+    const originalLink = within(dialog).getByRole("link", { name: /Open original/i });
 
     expect(within(dialog).getByTitle("Embedded feed video")).toBeTruthy();
     expect(caption?.className).toContain("absolute");
     expect(caption?.className).toContain("bottom-0");
+    expect(originalLink.getAttribute("href")).toBe("https://example.com/nasa");
     expect(globalStyles).toContain("article[data-short-id] > div > div:last-child");
-    expect(globalStyles).toContain("bottom: 5.25rem;");
+    expect(globalStyles).toContain("bottom: 5.75rem;");
+    expect(globalStyles).toContain("article[data-short-id] > div > div:last-child a");
+    expect(globalStyles).toContain("bottom: 0.75rem;");
     article.videoUrl = originalUrl;
     article.videoMimeType = originalMimeType;
   });

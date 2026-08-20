@@ -162,3 +162,11 @@
 - [x] Add a gvone chat workspace with conversation list, branch navigator, branch action, and composer
 - [x] Generate assistant replies from inherited branch context using the server-side AI integration
 - [x] Add migration, ownership, branch-context, and chat-workspace regression coverage
+- [x] Cancelled by user: define per-conversation Feed memory selection and its bounded RSS article context
+- [x] Cancelled by user: persist private conversation-to-feed memory assignments with ownership checks
+- [x] Cancelled by user: include selected feed memory alongside inherited branch history in gvone replies
+- [x] Cancelled by user: add a minimal graph-style Feed memory button beside a compact three-dot chat menu
+- [x] Cancelled by user: build a Feed memory source selector and selected-memory summary for each conversation
+- [x] Cancelled by user: add server and workspace regressions for Feed memory privacy and reply-context assembly
+- [x] Move the Shorts Open original action clear of the YouTube desktop progress bar and control rail
+- [x] Add regression coverage for safe original-link placement in embedded YouTube Shorts
