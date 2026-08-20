@@ -10,6 +10,7 @@ import {
   getTopicCommunityForUser,
   joinTopicCommunity,
   leaveTopicCommunity,
+  listAllTopicCommunityFeed,
   listTopicCommunitiesForUser,
 } from "./db";
 import { protectedProcedure, router } from "./_core/trpc";
@@ -26,6 +27,7 @@ const postBody = z.string().trim().min(1).max(6000);
 
 export const topicCommunityRouter = router({
   list: protectedProcedure.query(({ ctx }) => listTopicCommunitiesForUser(ctx.user.id)),
+  allFeed: protectedProcedure.query(() => listAllTopicCommunityFeed()),
   get: protectedProcedure.input(z.object({ slug: topicSlug })).query(async ({ ctx, input }) => {
     const topic = await getTopicCommunityForUser(ctx.user.id, input.slug);
     if (!topic) throw new TRPCError({ code: "NOT_FOUND", message: "Topic community not found" });

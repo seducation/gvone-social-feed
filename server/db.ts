@@ -478,7 +478,15 @@ export async function listTopicCommunitiesForUser(userId: number) {
     isMember: await isTopicCommunityMember(userId, community.id),
     memberCount: await countTopicCommunityMembers(community.id),
     threadCount: await countTopicCommunityThreads(community.id),
-  })));
+  }))); 
+}
+
+export async function listAllTopicCommunityFeed() {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db.select({ id: topicCommunityPosts.id, communityId: topicCommunityPosts.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, userId: topicCommunityPosts.userId, title: topicCommunityPosts.title, body: topicCommunityPosts.body, createdAt: topicCommunityPosts.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityPosts).innerJoin(topicCommunities, eq(topicCommunityPosts.communityId, topicCommunities.id)).leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId)).orderBy(desc(topicCommunityPosts.createdAt));
+  const threads = await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, userId: topicCommunityThreads.userId, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityThreads).innerJoin(topicCommunities, eq(topicCommunityThreads.communityId, topicCommunities.id)).leftJoin(userProfiles, eq(topicCommunityThreads.userId, userProfiles.userId)).orderBy(desc(topicCommunityThreads.createdAt));
+  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...threads.map((thread) => ({ ...thread, kind: "thread" as const }))].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
 export async function createTopicCommunity(userId: number, input: TopicCommunityInput): Promise<TopicCommunity | undefined> {

@@ -13,6 +13,7 @@ import CommunityDirectory from "./pages/CommunityDirectory";
 import UserPage from "./pages/UserPage";
 import Topics from "./pages/Topics";
 import TopicCommunity from "./pages/TopicCommunity";
+import TopicFeed from "./pages/TopicFeed";
 import { StoryPulseFeedActions } from "./components/StoryPulseFeedActions";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path={"/community/:providerHostname"} component={ProviderCommunity} />
       <Route path={"/communities"} component={CommunityDirectory} />
       <Route path={"/topics"} component={Topics} />
+      <Route path={"/topics/feed"} component={TopicFeed} />
       <Route path={"/topics/:slug"} component={TopicCommunity} />
       <Route path={"/u/:username"} component={UserPage} />
       <Route path={"/404"} component={NotFound} />

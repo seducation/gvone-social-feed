@@ -303,3 +303,7 @@
 - [x] Add mixed-feed, compact-composer, reader Thread, and Topics-header regression coverage
 - [x] Preserve an optional one-or-more-topic picker inside the RSS Story Thread writing area, with story-only publishing as the default
 - [x] Replace the source-bar Visit community action with a # Topics control that opens the all-topics feed
+- [x] Create a dedicated all-topic mixed community feed page for source-bar # navigation
+- [x] Show ordinary posts and RSS Threads from every topic in newest-first order with topic context links
+- [x] Add discovery and new-topic creation paths from the all-topic feed page
+- [x] Add all-topic feed ordering, navigation, and creation-entry regression coverage
