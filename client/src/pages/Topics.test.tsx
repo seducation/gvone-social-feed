@@ -64,7 +64,7 @@ describe("standalone topic communities", () => {
     expect(mocks.createMutate).toHaveBeenCalledWith({ name: "Climate futures", slug: "climate-futures", description: "Discuss evidence and action." });
   });
 
-  it("keeps ordinary posts separate from RSS Threads and permits a member Reply", () => {
+  it("shows Reply-only cards that open the dedicated discussion page", () => {
     window.history.pushState({}, "", "/topics/space");
     render(<TopicCommunity />);
 
@@ -76,11 +76,10 @@ describe("standalone topic communities", () => {
     fireEvent.click(screen.getByRole("button", { name: "Publish post" }));
     expect(mocks.createPostMutate).toHaveBeenCalledWith({ slug: "space", title: undefined, body: "A second ordinary post." });
     expect(screen.getAllByText("Thread").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/RSS feed · example.com/i)).toBeTruthy();
+    expect(screen.queryByText(/RSS feed · example.com/i)).toBeNull();
     expect(screen.getByText("What does the next mission change?")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-    fireEvent.change(screen.getByLabelText("Your Reply"), { target: { value: "This deserves a closer look." } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Reply" }));
-    expect(mocks.replyMutate).toHaveBeenCalledWith({ threadId: 11, body: "This deserves a closer look." });
+    const replies = screen.getAllByRole("link", { name: "Reply" });
+    expect(replies[0].getAttribute("href")).toBe("/topics/space/discussion/thread/11");
+    expect(replies[1].getAttribute("href")).toBe("/topics/space/discussion/post/6");
   });
 });

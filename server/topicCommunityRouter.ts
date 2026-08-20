@@ -3,10 +3,12 @@ import { z } from "zod";
 import {
   createTopicCommunity,
   createTopicCommunityPost,
+  createTopicCommunityPostReply,
   createTopicCommunityReply,
   createTopicCommunityThread,
   ensureUserProfile,
   getTopicCommunityBySlug,
+  getTopicCommunityDiscussion,
   getTopicCommunityForUser,
   joinTopicCommunity,
   leaveTopicCommunity,
@@ -32,6 +34,11 @@ export const topicCommunityRouter = router({
     const topic = await getTopicCommunityForUser(ctx.user.id, input.slug);
     if (!topic) throw new TRPCError({ code: "NOT_FOUND", message: "Topic community not found" });
     return topic;
+  }),
+  discussion: protectedProcedure.input(z.object({ slug: topicSlug, kind: z.enum(["post", "thread"]), entryId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    const discussion = await getTopicCommunityDiscussion(ctx.user.id, input.slug, input.kind, input.entryId);
+    if (!discussion) throw new TRPCError({ code: "NOT_FOUND", message: "Topic discussion not found" });
+    return discussion;
   }),
   create: protectedProcedure.input(z.object({ slug: topicSlug, name: topicName, description: topicDescription })).mutation(async ({ ctx, input }) => {
     if (!(await ensureUserProfile(ctx.user.id, ctx.user.name))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load your profile" });
@@ -65,6 +72,12 @@ export const topicCommunityRouter = router({
     if (!(await ensureUserProfile(ctx.user.id, ctx.user.name))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load your profile" });
     const reply = await createTopicCommunityReply(ctx.user.id, input.threadId, input.body);
     if (!reply) throw new TRPCError({ code: "FORBIDDEN", message: "Join the topic before replying to this Thread" });
+    return reply;
+  }),
+  replyToPost: protectedProcedure.input(z.object({ postId: z.number().int().positive(), body: replyBody })).mutation(async ({ ctx, input }) => {
+    if (!(await ensureUserProfile(ctx.user.id, ctx.user.name))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load your profile" });
+    const reply = await createTopicCommunityPostReply(ctx.user.id, input.postId, input.body);
+    if (!reply) throw new TRPCError({ code: "FORBIDDEN", message: "Join the topic before replying to this post" });
     return reply;
   }),
 });

@@ -199,6 +199,17 @@ export const topicCommunityReplies = mysqlTable("topic_community_replies", {
   userCreated: index("topic_community_replies_user_created").on(table.userId, table.createdAt),
 }));
 
+export const topicCommunityPostReplies = mysqlTable("topic_community_post_replies", {
+  id: int("id").autoincrement().primaryKey(),
+  postId: int("postId").notNull(),
+  userId: int("userId").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  postCreated: index("topic_community_post_replies_post_created").on(table.postId, table.createdAt),
+  userCreated: index("topic_community_post_replies_user_created").on(table.userId, table.createdAt),
+}));
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type RssFeed = typeof rssFeeds.$inferSelect;
@@ -216,3 +227,4 @@ export type TopicCommunityMember = typeof topicCommunityMembers.$inferSelect;
 export type TopicCommunityPost = typeof topicCommunityPosts.$inferSelect;
 export type TopicCommunityThread = typeof topicCommunityThreads.$inferSelect;
 export type TopicCommunityReply = typeof topicCommunityReplies.$inferSelect;
+export type TopicCommunityPostReply = typeof topicCommunityPostReplies.$inferSelect;

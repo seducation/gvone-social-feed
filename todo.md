@@ -307,3 +307,10 @@
 - [x] Show ordinary posts and RSS Threads from every topic in newest-first order with topic context links
 - [x] Add discovery and new-topic creation paths from the all-topic feed page
 - [x] Add all-topic feed ordering, navigation, and creation-entry regression coverage
+- [x] Replaced by final direction: expand RSS references only on the dedicated discussion page while topic cards remain Reply-only
+- [x] Reveal the source URL and original-story link without storing copied RSS content
+- [x] Add expansion and original-story navigation regression coverage
+- [x] Replace all topic-card action groups with a single Reply action
+- [x] Open a dedicated topic discussion page for ordinary posts and RSS Threads when Reply is clicked
+- [x] Move reply lists and the reply composer from topic cards to their dedicated discussion page
+- [x] Add dedicated discussion navigation, permissions, and Reply-only action regression coverage

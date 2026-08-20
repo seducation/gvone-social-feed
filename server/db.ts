@@ -26,6 +26,7 @@ import {
   topicCommunities,
   topicCommunityMembers,
   topicCommunityPosts,
+  topicCommunityPostReplies,
   topicCommunityReplies,
   topicCommunityThreads,
   sourceTabPreferences,
@@ -563,6 +564,12 @@ export async function getTopicCommunityThread(threadId: number): Promise<TopicCo
   return (await db.select().from(topicCommunityThreads).where(eq(topicCommunityThreads.id, threadId)).limit(1))[0];
 }
 
+export async function getTopicCommunityPost(postId: number): Promise<TopicCommunityPost | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(topicCommunityPosts).where(eq(topicCommunityPosts.id, postId)).limit(1))[0];
+}
+
 export async function createTopicCommunityReply(userId: number, threadId: number, body: string): Promise<TopicCommunityReply | undefined> {
   const db = await getDb();
   if (!db) return undefined;
@@ -570,6 +577,33 @@ export async function createTopicCommunityReply(userId: number, threadId: number
   if (!thread || !(await isTopicCommunityMember(userId, thread.communityId))) return undefined;
   const result = await db.insert(topicCommunityReplies).values({ threadId, userId, body });
   return (await db.select().from(topicCommunityReplies).where(eq(topicCommunityReplies.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function createTopicCommunityPostReply(userId: number, postId: number, body: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const post = await getTopicCommunityPost(postId);
+  if (!post || !(await isTopicCommunityMember(userId, post.communityId))) return undefined;
+  const result = await db.insert(topicCommunityPostReplies).values({ postId, userId, body });
+  return (await db.select().from(topicCommunityPostReplies).where(eq(topicCommunityPostReplies.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function getTopicCommunityDiscussion(userId: number, slug: string, kind: "post" | "thread", entryId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const community = await getTopicCommunityBySlug(slug);
+  if (!community) return undefined;
+  const base = { community, isMember: await isTopicCommunityMember(userId, community.id), kind };
+  if (kind === "thread") {
+    const entry = (await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, userId: topicCommunityThreads.userId, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityThreads).leftJoin(userProfiles, eq(topicCommunityThreads.userId, userProfiles.userId)).where(and(eq(topicCommunityThreads.id, entryId), eq(topicCommunityThreads.communityId, community.id))).limit(1))[0];
+    if (!entry) return undefined;
+    const replies = await db.select({ id: topicCommunityReplies.id, userId: topicCommunityReplies.userId, body: topicCommunityReplies.body, createdAt: topicCommunityReplies.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityReplies).leftJoin(userProfiles, eq(topicCommunityReplies.userId, userProfiles.userId)).where(eq(topicCommunityReplies.threadId, entryId)).orderBy(asc(topicCommunityReplies.createdAt));
+    return { ...base, entry, replies };
+  }
+  const entry = (await db.select({ id: topicCommunityPosts.id, communityId: topicCommunityPosts.communityId, userId: topicCommunityPosts.userId, title: topicCommunityPosts.title, body: topicCommunityPosts.body, createdAt: topicCommunityPosts.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityPosts).leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId)).where(and(eq(topicCommunityPosts.id, entryId), eq(topicCommunityPosts.communityId, community.id))).limit(1))[0];
+  if (!entry) return undefined;
+  const replies = await db.select({ id: topicCommunityPostReplies.id, userId: topicCommunityPostReplies.userId, body: topicCommunityPostReplies.body, createdAt: topicCommunityPostReplies.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityPostReplies).leftJoin(userProfiles, eq(topicCommunityPostReplies.userId, userProfiles.userId)).where(eq(topicCommunityPostReplies.postId, entryId)).orderBy(asc(topicCommunityPostReplies.createdAt));
+  return { ...base, entry, replies };
 }
 
 export async function getTopicCommunityForUser(userId: number, slug: string) {
