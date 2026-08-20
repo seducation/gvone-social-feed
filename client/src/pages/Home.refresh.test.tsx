@@ -150,6 +150,7 @@ describe("dashboard reload refresh controls", () => {
     render(<Home />);
 
     expect(screen.getByText("gvone")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open profile" }).getAttribute("href")).toBe("/profile");
     fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
     expect(screen.getByText("gvone shorts")).toBeTruthy();
   });

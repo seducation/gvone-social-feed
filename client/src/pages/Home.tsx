@@ -9,7 +9,7 @@ import { SourceManager } from "@/components/SourceManager";
 import { GroupBuilder } from "@/components/GroupBuilder";
 import { startLogin } from "@/const";
 import { toast } from "sonner";
-import { ArrowUpRight, Bookmark, Check, ChevronDown, Compass, Globe2, Hash, Layers3, Loader2, LogOut, Megaphone, MoreHorizontal, Plus, Radio, RefreshCw, Rss, Search, Settings2, SlidersHorizontal, Sparkles, Trash2, Video, Volume2, VolumeX, X, Youtube } from "lucide-react";
+import { ArrowUpRight, Bookmark, Check, ChevronDown, Compass, Globe2, Hash, Layers3, Loader2, LogOut, Megaphone, MoreHorizontal, Plus, Radio, RefreshCw, Rss, Search, Settings2, SlidersHorizontal, Sparkles, Trash2, UserRound, Video, Volume2, VolumeX, X, Youtube } from "lucide-react";
 
 function formatDate(value: Date | string | null) {
   if (!value) return "Recently";
@@ -340,7 +340,7 @@ export default function Home() {
 
   return <div className="min-h-screen bg-[#f7f8fa] text-[#14161a]">
     <header className="sticky top-0 z-30 flex h-[76px] items-center border-b border-[#e6e8ed] bg-[#f7f8fa]/90 px-5 backdrop-blur-xl lg:px-8">
-      <div className="flex items-center gap-3 lg:w-[270px]"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#14161a] text-white"><Rss className="h-4 w-4" /></div><span className="text-lg font-semibold tracking-[-.03em]">gvone</span></div>
+      <div className="flex items-center gap-3 lg:w-[270px]"><a href="/profile" aria-label="Open profile" className="grid h-9 w-9 place-items-center rounded-xl border border-[#e1e4ea] bg-white text-[#635bff] transition hover:border-[#635bff] hover:bg-[#f5f4ff]"><UserRound className="h-4 w-4" /></a><span className="text-lg font-semibold tracking-[-.03em]">gvone</span></div>
       <div className="hidden max-w-xl flex-1 items-center gap-3 rounded-full border border-[#e1e4ea] bg-white px-4 py-2.5 text-sm text-[#9aa1ad] md:flex"><Search className="h-4 w-4" /> Search your signal</div>
       <div className="ml-auto flex items-center gap-2"><a href="/chat" className="hidden items-center gap-2 rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#596270] transition hover:border-[#635bff] hover:text-[#635bff] sm:inline-flex"><Sparkles className="h-4 w-4" /> Chat</a><button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-[#635bff] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_7px_18px_rgba(99,91,255,.2)] transition hover:-translate-y-0.5"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add feed</span></button><button onClick={() => auth.logout()} aria-label="Sign out" className="grid h-10 w-10 place-items-center rounded-full border border-[#e1e4ea] bg-white text-[#727b89] transition hover:text-[#14161a]"><LogOut className="h-4 w-4" /></button></div>
     </header>

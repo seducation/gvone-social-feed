@@ -48,24 +48,25 @@ describe("Story Pulse and member profile", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("keeps the original RSS story fixed above repost-only activity", () => {
+  it("keeps the original RSS story fixed above Thread-only activity", () => {
     window.history.pushState({}, "", "/pulse/12");
     render(<StoryPulse />);
 
     expect(screen.getByText("RSS story · live context")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Launch update" })).toBeTruthy();
     expect(screen.getByText("Pulse activity")).toBeTruthy();
-    expect(screen.getByText("Reposted")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Your repost"), { target: { value: "My signal" } });
-    fireEvent.click(screen.getByRole("button", { name: "Repost" }));
+    expect(screen.getAllByText("Thread").length).toBeGreaterThan(1);
+    fireEvent.change(screen.getByLabelText("Your Thread"), { target: { value: "My signal" } });
+    fireEvent.click(screen.getByRole("button", { name: "Thread" }));
     expect(mocks.repostMutate).toHaveBeenCalledWith({ discussionId: 12, content: "My signal" });
   });
 
-  it("shows every Story Pulse repost in the member profile signal trail", () => {
+  it("shows every Story Pulse Thread in the member profile signal trail", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
     expect(screen.getByText("Signal trail")).toBeTruthy();
+    expect(screen.getByText("1 Story Pulse Thread")).toBeTruthy();
     expect(screen.getByText("Launch update")).toBeTruthy();
     expect(screen.getByText("Worth watching")).toBeTruthy();
   });

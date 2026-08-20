@@ -210,3 +210,8 @@
 - [x] Add a minimal Related action to every feed article card
 - [x] Show a focused related-story view with source labels and original article links
 - [x] Add coverage for related-story ranking and Related action interaction
+- [x] Rename all user-facing Story Pulse repost labels, counts, actions, and empty states to Thread
+- [x] Update profile signal-trail wording from repost to Thread
+- [x] Add regression coverage for the Thread terminology across Story Pulse and profiles
+- [x] Replace the home header’s top-left black brand icon with an accessible profile icon and link
+- [x] Add regression coverage for home-header profile navigation
