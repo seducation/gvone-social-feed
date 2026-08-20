@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
     isMember: true,
     memberCount: 3,
     posts: [{ id: 6, communityId: 4, userId: 42, title: "Community update", body: "A plain member post without an RSS Thread.", createdAt: new Date("2026-08-20T07:30:00Z"), displayName: "Reader", username: "reader" }],
-    threads: [{ id: 11, communityId: 4, userId: 7, title: "What does the next mission change?", body: "A focused angle for this community.", sourceStoryUrl: "https://example.com/launch", createdAt: new Date("2026-08-20T08:00:00Z"), updatedAt: new Date(), displayName: "Orbit", username: "orbit", replies: [{ id: 12, threadId: 11, userId: 42, body: "It opens a new path for research.", createdAt: new Date("2026-08-20T08:20:00Z"), displayName: "Reader", username: "reader" }] }],
+    threads: [{ id: 11, communityId: 4, userId: 7, title: "What does the next mission change?", body: "A focused angle for this community.", sourceStoryUrl: "https://example.com/launch", story: { id: 22, title: "NASA creates a new spacecraft", link: "https://example.com/launch", description: "Full RSS story content is visible in this topic Thread.", thumbnailUrl: null, videoUrl: null, videoMimeType: null, publishedAt: new Date("2026-08-20T08:00:00Z") }, createdAt: new Date("2026-08-20T08:00:00Z"), updatedAt: new Date(), displayName: "Orbit", username: "orbit", replies: [{ id: 12, threadId: 11, userId: 42, body: "It opens a new path for research.", createdAt: new Date("2026-08-20T08:20:00Z"), displayName: "Reader", username: "reader" }] }],
   },
 }));
 
@@ -78,6 +78,7 @@ describe("standalone topic communities", () => {
     expect(screen.getAllByText("Thread").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/RSS feed · example.com/i)).toBeNull();
     expect(screen.getByText("What does the next mission change?")).toBeTruthy();
+    expect(screen.getByText("NASA creates a new spacecraft")).toBeTruthy();
     const replies = screen.getAllByRole("link", { name: "Reply" });
     expect(replies[0].getAttribute("href")).toBe("/topics/space/discussion/thread/11");
     expect(replies[1].getAttribute("href")).toBe("/topics/space/discussion/post/6");

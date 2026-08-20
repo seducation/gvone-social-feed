@@ -487,7 +487,8 @@ export async function listAllTopicCommunityFeed() {
   if (!db) return [];
   const posts = await db.select({ id: topicCommunityPosts.id, communityId: topicCommunityPosts.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, userId: topicCommunityPosts.userId, title: topicCommunityPosts.title, body: topicCommunityPosts.body, createdAt: topicCommunityPosts.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityPosts).innerJoin(topicCommunities, eq(topicCommunityPosts.communityId, topicCommunities.id)).leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId)).orderBy(desc(topicCommunityPosts.createdAt));
   const threads = await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, communitySlug: topicCommunities.slug, communityName: topicCommunities.name, userId: topicCommunityThreads.userId, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityThreads).innerJoin(topicCommunities, eq(topicCommunityThreads.communityId, topicCommunities.id)).leftJoin(userProfiles, eq(topicCommunityThreads.userId, userProfiles.userId)).orderBy(desc(topicCommunityThreads.createdAt));
-  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...threads.map((thread) => ({ ...thread, kind: "thread" as const }))].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  const enrichedThreads = await Promise.all(threads.map(async (thread) => ({ ...thread, kind: "thread" as const, story: thread.sourceStoryUrl ? await getTopicThreadStory(thread.userId, thread.sourceStoryUrl) : undefined })));
+  return [...posts.map((post) => ({ ...post, kind: "post" as const })), ...enrichedThreads].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
 export async function createTopicCommunity(userId: number, input: TopicCommunityInput): Promise<TopicCommunity | undefined> {
@@ -536,6 +537,14 @@ export async function userHasSavedStoryUrl(userId: number, sourceStoryUrl: strin
   return Boolean((await db.select({ id: rssArticles.id }).from(rssArticles)
     .innerJoin(rssFeeds, eq(rssArticles.feedId, rssFeeds.id))
     .where(and(eq(rssFeeds.userId, userId), eq(rssArticles.link, sourceStoryUrl))).limit(1))[0]);
+}
+
+export async function getTopicThreadStory(userId: number, sourceStoryUrl: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select({ id: rssArticles.id, title: rssArticles.title, link: rssArticles.link, description: rssArticles.description, thumbnailUrl: rssArticles.thumbnailUrl, videoUrl: rssArticles.videoUrl, videoMimeType: rssArticles.videoMimeType, publishedAt: rssArticles.publishedAt }).from(rssArticles)
+    .innerJoin(rssFeeds, eq(rssArticles.feedId, rssFeeds.id))
+    .where(and(eq(rssFeeds.userId, userId), eq(rssArticles.link, sourceStoryUrl))).limit(1))[0];
 }
 
 export async function createTopicCommunityThread(userId: number, slug: string, input: TopicThreadInput): Promise<TopicCommunityThread | undefined> {
@@ -598,7 +607,7 @@ export async function getTopicCommunityDiscussion(userId: number, slug: string, 
     const entry = (await db.select({ id: topicCommunityThreads.id, communityId: topicCommunityThreads.communityId, userId: topicCommunityThreads.userId, title: topicCommunityThreads.title, body: topicCommunityThreads.body, sourceStoryUrl: topicCommunityThreads.sourceStoryUrl, createdAt: topicCommunityThreads.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityThreads).leftJoin(userProfiles, eq(topicCommunityThreads.userId, userProfiles.userId)).where(and(eq(topicCommunityThreads.id, entryId), eq(topicCommunityThreads.communityId, community.id))).limit(1))[0];
     if (!entry) return undefined;
     const replies = await db.select({ id: topicCommunityReplies.id, userId: topicCommunityReplies.userId, body: topicCommunityReplies.body, createdAt: topicCommunityReplies.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityReplies).leftJoin(userProfiles, eq(topicCommunityReplies.userId, userProfiles.userId)).where(eq(topicCommunityReplies.threadId, entryId)).orderBy(asc(topicCommunityReplies.createdAt));
-    return { ...base, entry, replies };
+    return { ...base, entry: { ...entry, story: entry.sourceStoryUrl ? await getTopicThreadStory(entry.userId, entry.sourceStoryUrl) : undefined }, replies };
   }
   const entry = (await db.select({ id: topicCommunityPosts.id, communityId: topicCommunityPosts.communityId, userId: topicCommunityPosts.userId, title: topicCommunityPosts.title, body: topicCommunityPosts.body, createdAt: topicCommunityPosts.createdAt, displayName: userProfiles.displayName, username: userProfiles.username }).from(topicCommunityPosts).leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId)).where(and(eq(topicCommunityPosts.id, entryId), eq(topicCommunityPosts.communityId, community.id))).limit(1))[0];
   if (!entry) return undefined;
@@ -654,7 +663,7 @@ export async function getTopicCommunityForUser(userId: number, slug: string) {
     .leftJoin(userProfiles, eq(topicCommunityPosts.userId, userProfiles.userId))
     .where(eq(topicCommunityPosts.communityId, community.id))
     .orderBy(desc(topicCommunityPosts.createdAt));
-  const threads = rows.map((thread) => ({ ...thread, replies: repliesByThread.get(thread.id) ?? [] }));
+  const threads = await Promise.all(rows.map(async (thread) => ({ ...thread, replies: repliesByThread.get(thread.id) ?? [], story: thread.sourceStoryUrl ? await getTopicThreadStory(thread.userId, thread.sourceStoryUrl) : undefined })));
   const feed = [
     ...posts.map((post) => ({ ...post, kind: "post" as const })),
     ...threads.map((thread) => ({ ...thread, kind: "thread" as const })),

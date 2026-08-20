@@ -314,3 +314,7 @@
 - [x] Open a dedicated topic discussion page for ordinary posts and RSS Threads when Reply is clicked
 - [x] Move reply lists and the reply composer from topic cards to their dedicated discussion page
 - [x] Add dedicated discussion navigation, permissions, and Reply-only action regression coverage
+- [x] Resolve full RSS article details from the Thread author’s saved library without copying them into topic storage
+- [x] Render full RSS story cards inside RSS-backed topic Threads instead of source labels or URLs
+- [x] Add a Shorts refresh control beside the sound preference button
+- [x] Add rich RSS story and Shorts refresh regression coverage

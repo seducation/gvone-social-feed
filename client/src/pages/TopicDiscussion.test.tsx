@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ replyPost: vi.fn(), invalidate: vi.fn().mockRe
 vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ isAuthenticated: true, loading: false }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({ trpc: { useUtils: () => ({ topicCommunity: { discussion: { invalidate: mocks.invalidate } } }), topicCommunity: {
-  discussion: { useQuery: () => ({ isLoading: false, data: window.location.pathname.includes("/thread/") ? { community: { name: "Space" }, isMember: true, kind: "thread", entry: { id: 11, title: "Launch update", body: "A story Thread", sourceStoryUrl: "https://example.com/launch", createdAt: new Date(), displayName: "Orbit" }, replies: [] } : { community: { name: "Space" }, isMember: true, kind: "post", entry: { id: 6, title: "Community update", body: "A plain post", createdAt: new Date(), displayName: "Reader" }, replies: [] } }) },
+  discussion: { useQuery: () => ({ isLoading: false, data: window.location.pathname.includes("/thread/") ? { community: { name: "Space" }, isMember: true, kind: "thread", entry: { id: 11, title: "Launch update", body: "A story Thread", sourceStoryUrl: "https://example.com/launch", story: { id: 19, title: "NASA completes a new launch", link: "https://example.com/launch", description: "The full RSS article content is available here.", thumbnailUrl: null, videoUrl: null, videoMimeType: null, publishedAt: new Date() }, createdAt: new Date(), displayName: "Orbit" }, replies: [] } : { community: { name: "Space" }, isMember: true, kind: "post", entry: { id: 6, title: "Community update", body: "A plain post", createdAt: new Date(), displayName: "Reader" }, replies: [] } }) },
   reply: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) }, replyToPost: { useMutation: () => ({ mutate: mocks.replyPost, isPending: false }) },
 } } }));
 
@@ -25,11 +25,11 @@ describe("topic discussion page", () => {
     expect(mocks.replyPost).toHaveBeenCalledWith({ postId: 6, body: "Useful update." });
   });
 
-  it("expands the RSS story reference for a Thread only on its discussion page", () => {
+  it("shows the full resolved RSS story card for a Thread", () => {
     window.history.pushState({}, "", "/topics/space/discussion/thread/11");
     render(<TopicDiscussion />);
-    fireEvent.click(screen.getByRole("button", { name: /Expand/i }));
-    expect(screen.getByText("https://example.com/launch")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open original story" }).getAttribute("href")).toBe("https://example.com/launch");
+    expect(screen.getByText("NASA completes a new launch")).toBeTruthy();
+    expect(screen.getByText("The full RSS article content is available here.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open story" }).getAttribute("href")).toBe("https://example.com/launch");
   });
 });

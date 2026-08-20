@@ -340,6 +340,22 @@ export default function Home() {
     if (nextSoundEnabled) playEmbeddedShort(activeEmbed);
   };
 
+  useEffect(() => {
+    if (!showShorts) return;
+    const soundButton = document.querySelector<HTMLButtonElement>('[aria-label="Mute Shorts"], [aria-label="Turn on Shorts sound"]');
+    const controls = soundButton?.parentElement;
+    if (!soundButton || !controls || controls.querySelector('[aria-label="Refresh Shorts"]')) return;
+    const refreshButton = document.createElement("button");
+    refreshButton.type = "button";
+    refreshButton.setAttribute("aria-label", "Refresh Shorts");
+    refreshButton.className = "inline-flex h-10 items-center gap-2 rounded-full bg-white/12 px-3 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/20 disabled:opacity-50";
+    refreshButton.textContent = "↻ Refresh";
+    const refresh = () => refreshAllFeeds.mutate();
+    refreshButton.addEventListener("click", refresh);
+    controls.insertBefore(refreshButton, soundButton.nextSibling);
+    return () => { refreshButton.removeEventListener("click", refresh); refreshButton.remove(); };
+  }, [showShorts, refreshAllFeeds]);
+
   if (auth.loading || dashboard.isLoading) {
     return <div className="grid min-h-screen place-items-center bg-[#f7f8fa]"><Loader2 className="h-6 w-6 animate-spin text-[#635bff]" /></div>;
   }

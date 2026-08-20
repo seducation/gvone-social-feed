@@ -267,6 +267,15 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.queryByRole("dialog", { name: "Video Shorts" })).toBeNull();
   });
 
+  it("places a refresh control beside the Shorts sound control", () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "Open Shorts" }));
+    const dialog = screen.getByRole("dialog", { name: "Video Shorts" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Refresh Shorts" }));
+    expect(mocks.refreshAllMutate).toHaveBeenCalled();
+  });
+
   it("keeps each Short in its own stable tile and mutes native short videos", () => {
     mocks.allArticles.push({ id: 4, feedId: 7, title: "NASA archive clip", link: "https://example.com/archive-video", description: null, publishedAt: new Date("2026-08-18T08:00:00Z"), thumbnailUrl: null, videoUrl: "https://cdn.example.com/archive.mp4" });
     render(<Home />);
