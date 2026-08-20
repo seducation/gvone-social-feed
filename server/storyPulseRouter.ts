@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
-import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfileProviderCommunityPosts, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
 
 const displayName = z.string().trim().min(1).max(80);
 const username = z.string().trim().min(3).max(30).regex(/^[a-z][a-z0-9_]*$/i, "Use 3–30 letters, numbers, or underscores, starting with a letter");
@@ -34,7 +34,7 @@ export const storyPulseRouter = router({
     activity: protectedProcedure.query(async ({ ctx }) => {
       const profile = await ensureUserProfile(ctx.user.id, ctx.user.name);
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load profile" });
-      return { profile, reposts: await listProfilePulse(ctx.user.id) };
+      return { profile, reposts: await listProfilePulse(ctx.user.id), communityPosts: await listProfileProviderCommunityPosts(ctx.user.id) };
     }),
   }),
   open: protectedProcedure.input(storyInput).mutation(async ({ input }) => {

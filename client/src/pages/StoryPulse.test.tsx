@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   profile: {
     profile: { userId: 42, displayName: "Reader", username: "reader", bio: "Signals and launches" },
     reposts: [{ id: 30, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: null, quotedPostId: null, content: "What does this launch prove?", createdAt: new Date("2026-08-20T08:00:00Z") }, { id: 31, discussionId: 12, storyUrl: "https://example.com/launch", parentPostId: 30, quotedPostId: 30, parentDisplayName: "Orbit", parentUsername: "orbit", parentContent: "What does this launch prove?", quotedDisplayName: "Orbit", quotedUsername: "orbit", quotedContent: "What does this launch prove?", content: "It verifies the new engine performance.", createdAt: new Date("2026-08-20T08:10:00Z") }],
+    communityPosts: [{ id: 44, communityId: 3, providerHostname: "youtube.com", title: "Launch discussion", body: "What stood out from the broadcast?", createdAt: new Date("2026-08-20T08:20:00Z") }],
   },
 }));
 
@@ -70,18 +71,21 @@ describe("Story Pulse and member profile", () => {
     expect(screen.getAllByText("Echoing @orbit’s Thread").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("separates Threads from Echoes in the member profile", () => {
+  it("separates Threads, Echoes, and provider-community posts in the member profile", () => {
     render(<Profile />);
 
     expect(screen.getByRole("heading", { name: "Reader" })).toBeTruthy();
     expect(screen.getByText("@reader")).toBeTruthy();
     expect(screen.getByText("Your Threads")).toBeTruthy();
     expect(screen.getByText("Your Echoes")).toBeTruthy();
+    expect(screen.getByText("Your community posts")).toBeTruthy();
     expect(screen.getByText("1 Thread started")).toBeTruthy();
     expect(screen.getByText("1 Echo sent")).toBeTruthy();
     expect(screen.getAllByText("Launch update").length).toBe(2);
     expect(screen.getAllByText("What does this launch prove?").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("It verifies the new engine performance.")).toBeTruthy();
+    expect(screen.getByText("Launch discussion")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Launch discussion/i }).getAttribute("href")).toBe("/community/youtube.com");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByPlaceholderText("unique_username"), { target: { value: "reader_orbit" } });
     fireEvent.click(screen.getByRole("button", { name: "Save profile" }));

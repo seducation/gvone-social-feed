@@ -324,13 +324,32 @@ export async function getOrCreateProviderCommunity(providerHostname: string): Pr
   return (await db.select().from(providerCommunities).where(eq(providerCommunities.providerHostname, providerHostname)).limit(1))[0];
 }
 
+export async function findProviderCommunity(providerHostname: string): Promise<ProviderCommunity | undefined> {
+  const db = await getDb();
+  if (!db || !providerHostname) return undefined;
+  return (await db.select().from(providerCommunities).where(eq(providerCommunities.providerHostname, providerHostname)).limit(1))[0];
+}
+
 export async function listProviderCommunitiesForUser(userId: number): Promise<ProviderCommunity[]> {
+  const providerHostnames = await listUserProviderHostnames(userId);
+  await Promise.all(providerHostnames.map((providerHostname) => getOrCreateProviderCommunity(providerHostname)));
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(providerCommunities).orderBy(asc(providerCommunities.providerHostname));
+}
+
+export async function listPostableProviderCommunitiesForUser(userId: number): Promise<ProviderCommunity[]> {
   const providerHostnames = await listUserProviderHostnames(userId);
   const communities = await Promise.all(providerHostnames.map((providerHostname) => getOrCreateProviderCommunity(providerHostname)));
   return communities.filter((community): community is ProviderCommunity => Boolean(community));
 }
 
 export async function getProviderCommunityForUser(userId: number, providerHostname: string): Promise<ProviderCommunity | undefined> {
+  const normalized = canonicalProviderHostname(`https://${providerHostname}`) || providerHostname.toLowerCase().replace(/^www\./, "");
+  return findProviderCommunity(normalized);
+}
+
+export async function getProviderCommunityForPosting(userId: number, providerHostname: string): Promise<ProviderCommunity | undefined> {
   const normalized = canonicalProviderHostname(`https://${providerHostname}`) || providerHostname.toLowerCase().replace(/^www\./, "");
   const savedProviders = await listUserProviderHostnames(userId);
   if (!savedProviders.includes(normalized)) return undefined;
@@ -340,7 +359,7 @@ export async function getProviderCommunityForUser(userId: number, providerHostna
 export async function createProviderCommunityPost(userId: number, providerHostname: string, title: string, body?: string | null): Promise<ProviderCommunityPost | undefined> {
   const db = await getDb();
   if (!db) return undefined;
-  const community = await getProviderCommunityForUser(userId, providerHostname);
+  const community = await getProviderCommunityForPosting(userId, providerHostname);
   if (!community) return undefined;
   const result = await db.insert(providerCommunityPosts).values({ communityId: community.id, userId, title, body: body || null });
   return (await db.select().from(providerCommunityPosts).where(eq(providerCommunityPosts.id, Number(result[0].insertId))).limit(1))[0];
@@ -365,4 +384,20 @@ export async function listProviderCommunityPostsForUser(userId: number, provider
     .where(eq(providerCommunityPosts.communityId, community.id))
     .orderBy(desc(providerCommunityPosts.createdAt));
   return { community, posts: rows };
+}
+
+export async function listProfileProviderCommunityPosts(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: providerCommunityPosts.id,
+    communityId: providerCommunityPosts.communityId,
+    providerHostname: providerCommunities.providerHostname,
+    title: providerCommunityPosts.title,
+    body: providerCommunityPosts.body,
+    createdAt: providerCommunityPosts.createdAt,
+  }).from(providerCommunityPosts)
+    .innerJoin(providerCommunities, eq(providerCommunityPosts.communityId, providerCommunities.id))
+    .where(eq(providerCommunityPosts.userId, userId))
+    .orderBy(desc(providerCommunityPosts.createdAt));
 }

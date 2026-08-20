@@ -8,11 +8,12 @@ vi.mock("./db", async () => {
     createProviderCommunityPost: vi.fn(),
     ensureUserProfile: vi.fn(),
     listProviderCommunitiesForUser: vi.fn(),
+    listPostableProviderCommunitiesForUser: vi.fn(),
     listProviderCommunityPostsForUser: vi.fn(),
   };
 });
 
-import { createProviderCommunityPost, ensureUserProfile, listProviderCommunitiesForUser, listProviderCommunityPostsForUser } from "./db";
+import { createProviderCommunityPost, ensureUserProfile, listPostableProviderCommunitiesForUser, listProviderCommunitiesForUser, listProviderCommunityPostsForUser } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -26,11 +27,18 @@ function createContext(): TrpcContext {
 describe("Provider communities", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("lists only the provider communities available from a member's saved RSS sources", async () => {
-    vi.mocked(listProviderCommunitiesForUser).mockResolvedValue([{ id: 1, providerHostname: "youtube.com", createdAt: new Date(), updatedAt: new Date() }] as never);
+  it("lists every existing provider community for any signed-in member to visit", async () => {
+    vi.mocked(listProviderCommunitiesForUser).mockResolvedValue([{ id: 1, providerHostname: "youtube.com", createdAt: new Date(), updatedAt: new Date() }, { id: 2, providerHostname: "cnn.com", createdAt: new Date(), updatedAt: new Date() }] as never);
 
-    await expect(appRouter.createCaller(createContext()).providerCommunity.list()).resolves.toMatchObject([{ providerHostname: "youtube.com" }]);
+    await expect(appRouter.createCaller(createContext()).providerCommunity.list()).resolves.toMatchObject([{ providerHostname: "youtube.com" }, { providerHostname: "cnn.com" }]);
     expect(listProviderCommunitiesForUser).toHaveBeenCalledWith(42);
+  });
+
+  it("lists only a member's saved providers as choices for creating a community post", async () => {
+    vi.mocked(listPostableProviderCommunitiesForUser).mockResolvedValue([{ id: 1, providerHostname: "youtube.com", createdAt: new Date(), updatedAt: new Date() }] as never);
+
+    await expect(appRouter.createCaller(createContext()).providerCommunity.mine()).resolves.toMatchObject([{ providerHostname: "youtube.com" }]);
+    expect(listPostableProviderCommunitiesForUser).toHaveBeenCalledWith(42);
   });
 
   it("publishes a titled post into a provider community the member has joined through RSS", async () => {

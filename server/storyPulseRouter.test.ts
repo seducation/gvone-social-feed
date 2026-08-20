@@ -10,6 +10,7 @@ vi.mock("./db", async () => {
     ensureUserProfile: vi.fn(),
     getStoryDiscussion: vi.fn(),
     getUserProfileByUsername: vi.fn(),
+    listProfileProviderCommunityPosts: vi.fn(),
     listProfilePulse: vi.fn(),
     listStoryReposts: vi.fn(),
     openStoryDiscussion: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock("./db", async () => {
   };
 });
 
-import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
+import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, getUserProfileByUsername, listProfileProviderCommunityPosts, listProfilePulse, listStoryReposts, openStoryDiscussion, updateUserProfile } from "./db";
 import { appRouter } from "./routers";
 
 function createContext(): TrpcContext {
@@ -79,8 +80,9 @@ describe("Story Pulse", () => {
   it("returns a member profile together with that member's repost activity", async () => {
     vi.mocked(ensureUserProfile).mockResolvedValue({ userId: 42, displayName: "Reader", bio: "Signals and launches" } as never);
     vi.mocked(listProfilePulse).mockResolvedValue([{ id: 30, discussionId: 12, content: "Worth watching", sourceLabel: "NASA", storyTitle: "Launch update", storyLink: "https://example.com/launch", createdAt: new Date() }] as never);
+    vi.mocked(listProfileProviderCommunityPosts).mockResolvedValue([{ id: 44, communityId: 3, providerHostname: "youtube.com", title: "Launch discussion", body: null, createdAt: new Date() }] as never);
     vi.mocked(listStoryReposts).mockResolvedValue([]);
 
-    await expect(appRouter.createCaller(createContext()).storyPulse.profile.activity()).resolves.toMatchObject({ profile: { displayName: "Reader" }, reposts: [{ storyTitle: "Launch update" }] });
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.activity()).resolves.toMatchObject({ profile: { displayName: "Reader" }, reposts: [{ storyTitle: "Launch update" }], communityPosts: [{ providerHostname: "youtube.com" }] });
   });
 });

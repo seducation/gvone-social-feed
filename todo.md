@@ -245,3 +245,10 @@
 - [x] Add a plus-button composer to select a provider community and publish a member post
 - [x] Make provider names open their internal community post streams
 - [x] Add ownership, provider-isolation, post-publish, and navigation regression coverage
+- [x] Allow every signed-in member to open and read all existing provider communities
+- [x] Replace the source-bar post-plus control with a Visit community selector
+- [x] Move the community post-plus control into the reader header
+- [x] Redirect a member to the selected community immediately after publishing
+- [x] Add universal-access, post-redirect, and revised-control regression coverage
+- [x] Show each member’s provider-community posts in a dedicated profile section with community links
+- [x] Add profile community-post activity regression coverage

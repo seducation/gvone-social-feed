@@ -21,6 +21,7 @@ export default function ProviderCommunity() {
   const providerHostname = (params?.providerHostname ?? "").toLowerCase();
   const [showComposer, setShowComposer] = useState(false);
   const communities = trpc.providerCommunity.list.useQuery(undefined, { enabled: auth.isAuthenticated });
+  const postableCommunities = trpc.providerCommunity.mine.useQuery(undefined, { enabled: auth.isAuthenticated });
   const community = trpc.providerCommunity.get.useQuery({ providerHostname }, { enabled: auth.isAuthenticated && Boolean(providerHostname) });
   useEffect(() => { if (community.error) toast.error(community.error.message); }, [community.error]);
 
@@ -34,6 +35,6 @@ export default function ProviderCommunity() {
       <div className="mb-5 flex items-center justify-between"><div><h2 className="text-xl font-semibold tracking-[-.03em]">Community posts</h2><p className="mt-1 text-sm text-[#7d8794]">Newest member posts first.</p></div><button type="button" onClick={() => setShowComposer(true)} aria-label="Create community post" className="grid h-10 w-10 place-items-center rounded-xl border border-[#e1e4ea] bg-white text-[#635bff] hover:border-[#635bff]"><MessageSquarePlus className="h-4 w-4" /></button></div>
       <div className="space-y-4">{community.data.posts.length ? community.data.posts.map((post) => <article key={post.id} className="rounded-[1.35rem] border border-[#e3e6ec] bg-white p-5 shadow-[0_8px_25px_rgba(24,31,45,.03)]"><div className="flex items-center gap-2 text-xs"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#f0eaff] font-bold text-[#704ee5]">{(post.displayName?.charAt(0) || "G").toUpperCase()}</span><span className="font-semibold text-[#4e5765]">{post.displayName || "gvone member"}</span><span className="font-mono font-semibold text-[#8b7ade]">@{post.username || "member"}</span><span className="text-[#a0a7b2]">· {relativeTime(post.createdAt)}</span></div><h3 className="mt-4 text-xl font-semibold tracking-[-.025em]">{post.title}</h3>{post.body && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#68707d]">{post.body}</p>}</article>) : <div className="rounded-[1.5rem] border border-dashed border-[#d9dde5] bg-white/55 px-6 py-14 text-center"><MessageSquarePlus className="mx-auto h-6 w-6 text-[#a9a2dc]" /><h2 className="mt-4 text-lg font-semibold">Start this community</h2><p className="mt-2 text-sm text-[#7d8794]">Share the first post about {community.data.community.providerHostname}.</p><button type="button" onClick={() => setShowComposer(true)} className="mt-5 rounded-full bg-[#17171d] px-4 py-2.5 text-sm font-semibold text-white">Create post</button></div>}</div>
     </main>
-    <CommunityPostComposer open={showComposer} onOpenChange={setShowComposer} communities={communities.data ?? []} defaultProviderHostname={community.data.community.providerHostname} />
+    <CommunityPostComposer open={showComposer} onOpenChange={setShowComposer} communities={postableCommunities.data ?? []} defaultProviderHostname={community.data.community.providerHostname} />
   </div>;
 }

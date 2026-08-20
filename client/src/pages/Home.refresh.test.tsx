@@ -97,7 +97,7 @@ vi.mock("@/lib/trpc", () => ({
       delete: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     assignment: { list: { useQuery: () => ({ data: [] }) }, set: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
-    providerCommunity: { list: { useQuery: () => ({ data: mocks.providerCommunities }) }, createPost: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
+    providerCommunity: { list: { useQuery: () => ({ data: mocks.providerCommunities }) }, mine: { useQuery: () => ({ data: mocks.providerCommunities }) }, createPost: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) } },
   },
 }));
 
@@ -532,10 +532,13 @@ describe("dashboard reload refresh controls", () => {
     expect(screen.queryByText("NASA update")).toBeNull();
   });
 
-  it("opens the provider-community composer from the source-bar plus icon", () => {
+  it("opens the provider-community composer from the header plus and exposes Visit community in the source bar", () => {
     render(<Home />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Create community post" }));
+    const postButton = screen.getByRole("button", { name: "Create community post" });
+    expect(postButton.closest("header")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Visit community" })).toBeTruthy();
+    fireEvent.click(postButton);
 
     const composer = screen.getByRole("dialog", { name: "Create community post" });
     expect(within(composer).getByRole("option", { name: "youtube.com" })).toBeTruthy();
