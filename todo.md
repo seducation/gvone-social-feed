@@ -259,3 +259,7 @@
 - [x] Show all user posts from every provider together in one newest-first mixed community timeline
 - [x] Make each mixed-timeline provider label open that provider’s dedicated community page
 - [x] Present every mixed community post as a social-feed card with author identity and provider context
+- [x] Add a dedicated public user page at /u/@username for past public activity
+- [x] Link community-post author names and usernames to their public user page
+- [x] Keep public user pages read-only while preserving owner-only profile editing
+- [x] Add user-page lookup, author-navigation, and owner-only control regression coverage

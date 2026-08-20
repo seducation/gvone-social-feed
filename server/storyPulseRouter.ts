@@ -5,6 +5,7 @@ import { addStoryReply, addStoryRepost, ensureUserProfile, getStoryDiscussion, g
 
 const displayName = z.string().trim().min(1).max(80);
 const username = z.string().trim().min(3).max(30).regex(/^[a-z][a-z0-9_]*$/i, "Use 3–30 letters, numbers, or underscores, starting with a letter");
+const publicUsername = z.string().trim().min(4).max(31).regex(/^@?[a-z][a-z0-9_]*$/i, "Use a valid username");
 const bio = z.string().trim().max(280).optional();
 const repostContent = z.string().trim().min(1).max(600);
 const storyInput = z.object({ storyUrl: z.string().url().max(2048) });
@@ -35,6 +36,12 @@ export const storyPulseRouter = router({
       const profile = await ensureUserProfile(ctx.user.id, ctx.user.name);
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load profile" });
       return { profile, reposts: await listProfilePulse(ctx.user.id), communityPosts: await listProfileProviderCommunityPosts(ctx.user.id) };
+    }),
+    public: protectedProcedure.input(z.object({ username: publicUsername })).query(async ({ input }) => {
+      const normalizedUsername = normalizeUsername(input.username.replace(/^@/, ""));
+      const profile = await getUserProfileByUsername(normalizedUsername);
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "User page not found" });
+      return { profile, reposts: await listProfilePulse(profile.userId), communityPosts: await listProfileProviderCommunityPosts(profile.userId) };
     }),
   }),
   open: protectedProcedure.input(storyInput).mutation(async ({ input }) => {

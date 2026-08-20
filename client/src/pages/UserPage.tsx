@@ -1,0 +1,32 @@
+import React from "react";
+import { ArrowLeft, CornerDownRight, Globe2, Loader2, MessageCircleQuestion, MessageSquarePlus, Radio } from "lucide-react";
+import { Link, useRoute } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
+import { trpc } from "@/lib/trpc";
+import { publicStoryProviderLabel } from "@/lib/storyProvider";
+
+function relativeTime(value: Date | string) {
+  const diff = Date.now() - new Date(value).getTime();
+  if (diff < 60_000) return "now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+export default function UserPage() {
+  const auth = useAuth();
+  const [, params] = useRoute("/u/:username");
+  const username = params?.username ?? "";
+  const activity = trpc.storyPulse.profile.public.useQuery({ username }, { enabled: auth.isAuthenticated && Boolean(username) });
+
+  if (auth.loading || activity.isLoading) return <div className="grid min-h-screen place-items-center bg-[#f7f8fa]"><Loader2 className="h-6 w-6 animate-spin text-[#635bff]" /></div>;
+  if (!auth.isAuthenticated) return <main className="grid min-h-screen place-items-center bg-[#f7f8fa] p-6 text-center"><div><Radio className="mx-auto h-7 w-7 text-[#635bff]" /><h1 className="mt-4 text-2xl font-semibold">Sign in to view user pages</h1><button type="button" onClick={startLogin} className="mt-5 rounded-full bg-[#635bff] px-5 py-3 text-sm font-semibold text-white">Sign in</button></div></main>;
+  if (!activity.data) return <main className="grid min-h-screen place-items-center bg-[#f7f8fa] p-6 text-center"><div><Globe2 className="mx-auto h-7 w-7 text-[#635bff]" /><h1 className="mt-4 text-2xl font-semibold">User page unavailable</h1><Link href="/communities" className="mt-5 inline-block text-sm font-semibold text-[#635bff]">Visit community</Link></div></main>;
+
+  const { profile, reposts, communityPosts } = activity.data;
+  const threads = reposts.filter((item) => item.parentPostId === null || item.parentPostId === undefined);
+  const echoes = reposts.filter((item) => item.parentPostId !== null && item.parentPostId !== undefined);
+  const isOwner = auth.user?.id === profile.userId;
+  return <div className="min-h-screen bg-[#f7f8fa] text-[#14161a]"><header className="flex h-[76px] items-center border-b border-[#e6e8ed] bg-[#f7f8fa]/90 px-5 backdrop-blur-xl sm:px-8"><Link href="/communities" className="inline-flex items-center gap-2 text-sm font-semibold text-[#68707d] hover:text-[#635bff]"><ArrowLeft className="h-4 w-4" /> Community</Link>{isOwner && <Link href="/profile" className="ml-auto rounded-full border border-[#e1e4ea] bg-white px-3.5 py-2 text-xs font-semibold text-[#635bff] hover:border-[#635bff]">Edit profile</Link>}</header><main className="mx-auto max-w-3xl px-5 py-8 sm:px-8"><section className="rounded-[1.75rem] bg-[#17171d] p-6 text-white"><div className="flex items-start gap-4"><span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[#f0eaff] text-2xl font-bold text-[#704ee5]">{profile.displayName.charAt(0).toUpperCase()}</span><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-[-.04em]">{profile.displayName}</h1><p className="mt-1 font-mono text-xs font-semibold text-[#bdb9ff]">@{profile.username}</p><p className="mt-3 max-w-xl text-sm leading-6 text-white/55">{profile.bio || "Sharing the signals worth carrying forward."}</p></div></div><div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-white/70"><span className="rounded-full bg-white/10 px-3 py-1.5">{threads.length} Thread{threads.length === 1 ? "" : "s"}</span><span className="rounded-full bg-white/10 px-3 py-1.5">{echoes.length} Echo{echoes.length === 1 ? "" : "es"}</span><span className="rounded-full bg-white/10 px-3 py-1.5">{communityPosts.length} community post{communityPosts.length === 1 ? "" : "s"}</span></div></section><section className="mt-9"><div className="mb-4"><h2 className="text-xl font-semibold tracking-[-.03em]">Past activity</h2><p className="mt-1 text-sm text-[#7d8794]">Public Threads, Echoes, and provider-community posts.</p></div><div className="space-y-3">{communityPosts.map((post) => <Link key={`community-${post.id}`} href={`/community/${encodeURIComponent(post.providerHostname)}`} className="block rounded-[1.25rem] border border-[#e3e6ec] bg-white p-5 transition hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageSquarePlus className="h-3.5 w-3.5" /> {post.providerHostname}<span className="ml-auto text-[#a0a7b2]">{relativeTime(post.createdAt)}</span></div><h3 className="mt-3 text-base font-semibold">{post.title}</h3>{post.body && <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#657080]">{post.body}</p>}</Link>)}{threads.map((thread) => <Link key={`thread-${thread.id}`} href={`/pulse/${thread.discussionId}#thread-${thread.id}`} className="block rounded-[1.25rem] border border-[#e3e6ec] bg-white p-5 transition hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><MessageCircleQuestion className="h-3.5 w-3.5" /> {publicStoryProviderLabel(thread.storyUrl)}<span className="ml-auto text-[#a0a7b2]">{relativeTime(thread.createdAt)}</span></div><p className="mt-3 text-sm leading-6 text-[#657080]">{thread.content}</p></Link>)}{echoes.map((echo) => <Link key={`echo-${echo.id}`} href={`/pulse/${echo.discussionId}#thread-${echo.parentPostId}`} className="block rounded-[1.25rem] border border-[#e3e6ec] bg-white p-5 transition hover:border-[#c8c4ff]"><div className="flex items-center gap-2 text-xs font-semibold text-[#635bff]"><CornerDownRight className="h-3.5 w-3.5" /> Echo · {publicStoryProviderLabel(echo.storyUrl)}<span className="ml-auto text-[#a0a7b2]">{relativeTime(echo.createdAt)}</span></div><p className="mt-3 text-sm leading-6 text-[#657080]">{echo.content}</p></Link>)}{!communityPosts.length && !threads.length && !echoes.length && <div className="rounded-[1.5rem] border border-dashed border-[#d9dde5] bg-white/55 px-6 py-12 text-center"><MessageSquarePlus className="mx-auto h-6 w-6 text-[#a9a2dc]" /><p className="mt-3 text-sm text-[#7d8794]">This user has not shared public activity yet.</p></div>}</div></section></main></div>;
+}

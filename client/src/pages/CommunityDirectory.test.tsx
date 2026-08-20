@@ -27,6 +27,8 @@ describe("Community directory", () => {
     expect(screen.getByText("World update")).toBeTruthy();
     expect(screen.getByText("@orbit")).toBeTruthy();
     expect(screen.getByText("@north")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Orbit" }).getAttribute("href")).toBe("/u/@orbit");
+    expect(screen.getByRole("link", { name: "@north" }).getAttribute("href")).toBe("/u/@north");
     expect(screen.getByRole("link", { name: /youtube.com/i }).getAttribute("href")).toBe("/community/youtube.com");
     expect(screen.getByRole("link", { name: /cnn.com/i }).getAttribute("href")).toBe("/community/cnn.com");
   });

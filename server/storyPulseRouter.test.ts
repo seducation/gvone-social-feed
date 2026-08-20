@@ -85,4 +85,14 @@ describe("Story Pulse", () => {
 
     await expect(appRouter.createCaller(createContext()).storyPulse.profile.activity()).resolves.toMatchObject({ profile: { displayName: "Reader" }, reposts: [{ storyTitle: "Launch update" }], communityPosts: [{ providerHostname: "youtube.com" }] });
   });
+
+  it("returns a read-only public user page by @username with that member's activity", async () => {
+    vi.mocked(getUserProfileByUsername).mockResolvedValue({ userId: 7, displayName: "Orbit", username: "orbit", bio: "Launch notes" } as never);
+    vi.mocked(listProfilePulse).mockResolvedValue([{ id: 30, discussionId: 12, content: "What does this launch prove?", parentPostId: null, createdAt: new Date() }] as never);
+    vi.mocked(listProfileProviderCommunityPosts).mockResolvedValue([{ id: 44, communityId: 3, providerHostname: "youtube.com", title: "Launch discussion", body: null, createdAt: new Date() }] as never);
+
+    await expect(appRouter.createCaller(createContext()).storyPulse.profile.public({ username: "@Orbit" })).resolves.toMatchObject({ profile: { username: "orbit" }, communityPosts: [{ providerHostname: "youtube.com" }] });
+    expect(getUserProfileByUsername).toHaveBeenCalledWith("orbit");
+    expect(listProfilePulse).toHaveBeenCalledWith(7);
+  });
 });
