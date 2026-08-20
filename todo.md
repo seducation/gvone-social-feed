@@ -263,3 +263,7 @@
 - [x] Link community-post author names and usernames to their public user page
 - [x] Keep public user pages read-only while preserving owner-only profile editing
 - [x] Add user-page lookup, author-navigation, and owner-only control regression coverage
+- [x] Rename optional source custom title input to Private label with a privacy explanation
+- [x] Show private source labels in the owner’s feed-card source area and Source roll call
+- [x] Preserve provider-domain community links without exposing private labels publicly
+- [x] Add private-label visibility and public-exclusion regression coverage

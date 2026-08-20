@@ -545,4 +545,21 @@ describe("dashboard reload refresh controls", () => {
     expect(within(composer).getByRole("option", { name: "reddit.com" })).toBeTruthy();
     expect(within(composer).getByPlaceholderText("Title")).toBeTruthy();
   });
+
+  it("shows a private RSS label in the owner reader while preserving the public provider link", () => {
+    const feed = mocks.dashboardData.feeds[0] as { customTitle: string | null };
+    const originalLabel = feed.customTitle;
+    feed.customTitle = "Space related";
+
+    try {
+      render(<Home />);
+      expect(screen.getAllByText("Space related").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByRole("link", { name: "m.youtube.com" }).getAttribute("href")).toBe("/community/m.youtube.com");
+      fireEvent.click(screen.getByRole("button", { name: "Add a source" }));
+      expect(screen.getByPlaceholderText("Space related")).toBeTruthy();
+      expect(screen.getByText(/only visible to you/i)).toBeTruthy();
+    } finally {
+      feed.customTitle = originalLabel;
+    }
+  });
 });
