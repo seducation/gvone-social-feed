@@ -18,21 +18,26 @@ main article iframe[title="Embedded feed video"] {
   aspect-ratio: 16 / 9;
 }
 
-/* The embedded player owns its lower control rail. Captions and the original
-   link sit in a dedicated metadata-safe area above YouTube's progress slider. */
+/* The embedded player owns its lower control rail. The metadata stack keeps
+   source, original-link, and title above YouTube's progress slider. */
 article[data-short-id] > div > div:last-child {
-  bottom: 5.75rem;
-  padding-bottom: 3.25rem;
+  bottom: 4.75rem;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.5rem;
 }
 
 article[data-short-id] > div > div:last-child a {
-  position: absolute;
-  bottom: 0.75rem;
-  left: 1.25rem;
-  margin-top: 0;
+  order: 1;
+  align-self: flex-start;
+  margin-top: 0.5rem;
   border: 1px solid rgb(255 255 255 / 0.18);
   border-radius: 9999px;
   background: rgb(0 0 0 / 0.5);
   padding: 0.4rem 0.65rem;
   backdrop-filter: blur(8px);
+}
+
+article[data-short-id] > div > div:last-child h3 {
+  order: 2;
 }

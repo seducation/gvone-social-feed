@@ -170,3 +170,6 @@
 - [x] Cancelled by user: add server and workspace regressions for Feed memory privacy and reply-context assembly
 - [x] Move the Shorts Open original action clear of the YouTube desktop progress bar and control rail
 - [x] Add regression coverage for safe original-link placement in embedded YouTube Shorts
+- [x] Place the Shorts Open original action above the video title in the lower metadata stack
+- [x] Preserve the YouTube control-safe clearance while refining Shorts metadata order
+- [x] Add regression coverage for original-link-before-title ordering in Shorts
